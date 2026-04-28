@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "MeloVision 作品广场",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function ExplorePage() {
   const feed = await getExploreFeed();
 
