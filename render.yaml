@@ -3,11 +3,13 @@ services:
     name: melovision
     runtime: node
     plan: starter
-    buildCommand: npm install -g pnpm@10.33.2 && pnpm install --frozen-lockfile && pnpm run render:build
-    startCommand: pnpm run render:start
+    buildCommand: npx pnpm@10.33.2 install --frozen-lockfile && npx pnpm@10.33.2 run render:build
+    startCommand: npx pnpm@10.33.2 run render:start
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: 24
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=1536
       - key: DATABASE_URL
         value: file:/var/data/dev.db
       - key: NEXTAUTH_URL
