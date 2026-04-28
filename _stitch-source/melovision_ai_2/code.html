@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>我的项目 - MeloVision</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffdecf",
+                        "error-container": "#93000a",
+                        "tertiary-fixed": "#ffdbca",
+                        "tertiary": "#ffb690",
+                        "primary-fixed-dim": "#d2bbff",
+                        "secondary-container": "#03b5d3",
+                        "on-tertiary-fixed-variant": "#783200",
+                        "secondary-fixed": "#acedff",
+                        "on-primary-fixed": "#25005a",
+                        "on-primary-container": "#ede0ff",
+                        "tertiary-container": "#aa4900",
+                        "primary": "#d2bbff",
+                        "primary-fixed": "#eaddff",
+                        "outline-variant": "#4a4455",
+                        "background": "#14121f",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "surface-container-highest": "#363342",
+                        "error": "#ffb4ab",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb690",
+                        "surface-tint": "#d2bbff",
+                        "primary-container": "#7c3aed",
+                        "on-background": "#e5e0f3",
+                        "secondary": "#4cd7f6",
+                        "on-surface": "#e5e0f3",
+                        "inverse-surface": "#e5e0f3",
+                        "inverse-primary": "#732ee4",
+                        "surface-variant": "#363342",
+                        "surface-bright": "#3a3746",
+                        "on-surface-variant": "#ccc3d8",
+                        "inverse-on-surface": "#312f3d",
+                        "on-tertiary-fixed": "#341100",
+                        "on-primary": "#3f008e",
+                        "surface-container-high": "#2b2836",
+                        "surface-dim": "#14121f",
+                        "outline": "#958da1",
+                        "surface-container-low": "#1c1a27",
+                        "on-secondary": "#003640",
+                        "surface-container-lowest": "#0e0c19",
+                        "surface-container": "#201e2c",
+                        "surface": "#14121f",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-secondary-container": "#00424e",
+                        "on-tertiary": "#552100",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "on-secondary-fixed": "#001f26",
+                        "on-error": "#690005"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "display": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            background-color: #14121f;
+        }
+        .glass-panel {
+            background: rgba(54, 51, 66, 0.6);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="text-on-background font-body min-h-screen antialiased flex flex-col">
+<!-- Top Navigation (Shell) -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 h-16 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] z-50">
+<div class="flex items-center gap-8">
+<div class="text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-cyan-400 font-headline">
+                MeloVision
+            </div>
+<nav class="hidden md:flex gap-6">
+<a class="text-slate-400 hover:text-violet-300 transition-colors font-medium" href="#">工作台</a>
+<a class="text-violet-400 font-bold transition-colors font-medium" href="#">项目</a>
+<a class="text-slate-400 hover:text-violet-300 transition-colors font-medium" href="#">素材库</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-violet-400 font-medium font-headline">50 积分</div>
+<button class="px-4 py-1.5 rounded-full border border-outline-variant/20 glass-panel hover:bg-white/5 text-sm font-medium transition-colors">
+                升级
+            </button>
+<div class="flex gap-3 text-slate-400">
+<button class="hover:text-violet-300 transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="hover:text-violet-300 transition-colors"><span class="material-symbols-outlined">help</span></button>
+</div>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-white/10" data-alt="close-up portrait of a person with neon purple and cyan lighting in a futuristic cyberpunk style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCz6zuK0EVnWnsMpRaoxHdZPBvmTF_9pvZ5dlbjeuCe_pE69Pw0_NZXJAE2BrQbC8xZuBYee8E3AgG10a4E-LKY2CkB5OEJ1-9cDTFzoXV9vFDT4A-xwPv8Mp1fJEPOZWuYojDQpSGTHDYitpi8kvoadbOJlj6IsOboKqkyFuwoLN0OtED_ezVdgHgt7clo3--7ZpAI-IkD0UdV3tQY-63j8oBETQ06M3zFzzqvYrlML9ZI-EVIuJmW8MBc-rcCYFLz8ouDQYYxGg"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-16 p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+<div>
+<h1 class="text-4xl font-headline tracking-tight">我的项目 <span class="text-on-surface-variant text-2xl font-normal">(23)</span></h1>
+</div>
+<button class="bg-gradient-to-r from-primary-container to-secondary-container hover:shadow-[0_0_20px_rgba(210,187,255,0.3)] text-white px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">add</span>
+                创建新 MV
+            </button>
+</div>
+<!-- Toolbar Section -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-8 bg-surface-container-low p-4 rounded-xl">
+<div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+<div class="relative flex-1 lg:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-lowest border-none outline-none focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant rounded-lg pl-10 pr-4 py-2 text-sm transition-all shadow-[inset_0_0_10px_rgba(124,58,237,0.05)]" placeholder="搜索项目..." type="text"/>
+</div>
+<div class="flex gap-1 p-1 bg-surface-container-lowest rounded-lg overflow-x-auto">
+<button class="px-3 py-1.5 rounded-md bg-surface-variant text-on-surface text-sm whitespace-nowrap">全部</button>
+<button class="px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface text-sm whitespace-nowrap transition-colors">草稿</button>
+<button class="px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface text-sm whitespace-nowrap transition-colors">生成中</button>
+<button class="px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface text-sm whitespace-nowrap transition-colors">已完成</button>
+<button class="px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface text-sm whitespace-nowrap transition-colors">失败</button>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/20 hover:border-primary/50 flex items-center gap-2 text-sm text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+                    风格筛选
+                </button>
+<button class="px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/20 hover:border-primary/50 flex items-center gap-2 text-sm text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">sort</span>
+                    最近更新
+                </button>
+<div class="flex bg-surface-container-lowest rounded-lg p-1 border border-outline-variant/20">
+<button class="p-1 rounded-md bg-surface-variant text-primary transition-colors"><span class="material-symbols-outlined">grid_view</span></button>
+<button class="p-1 rounded-md text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined">view_list</span></button>
+</div>
+</div>
+</div>
+<!-- Grid View -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Card 1: Completed -->
+<div class="group relative bg-surface-container rounded-2xl overflow-hidden hover:bg-surface-container-high transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(210,187,255,0.1)]">
+<div class="aspect-video relative overflow-hidden bg-surface-container-lowest">
+<img alt="午夜漫游者" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" data-alt="neon glowing city street at night in a moody cyberpunk style with deep purple and cyan reflections on wet pavement" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPVl_vpL5BCVTCh1ygohCwp1dcYVNRiP16-2dxXI-18dcKbINjbZ_n5uhaUea_HmTzNPJMxsOY-GcZJnk66uFySKM6GBjg-yLRyt23aDYRk0hF7uJx2RuLDuqOTHFj4-KphKthHu-vn2VPSD2glyGt5yrlCF7oZt2iTHxKvKxRpuYaKq8QtUx8G4p6iNvpPwlq4PVn04lwipzacbC2s1htNhzzwzEFdsSIyao_ZkzTX-FVw8gVsXy98Lp-RgJxk_q3JiUy4Rm7ig"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent"></div>
+<div class="absolute top-3 left-3 bg-surface-container/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/5 flex items-center gap-1.5">
+<span class="text-[10px] text-secondary">✅ 已完成</span>
+</div>
+<button class="absolute top-3 right-3 text-white/50 hover:text-white p-1 rounded-full bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+<div class="absolute bottom-3 left-3 flex gap-2">
+<span class="px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] text-on-surface font-medium border border-white/10">Lo-fi</span>
+<span class="px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] text-on-surface font-medium border border-white/10">赛博朋克</span>
+</div>
+<div class="absolute bottom-3 right-3 flex gap-3 text-xs text-on-surface/80 bg-black/40 backdrop-blur-sm px-2 py-1 rounded border border-white/10">
+<span>❤️ 234</span>
+<span>▶️ 1.2K</span>
+</div>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-medium text-on-surface mb-1 truncate">午夜漫游者</h3>
+<p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> 2小时前更新</p>
+</div>
+</div>
+<!-- Card 2: Generating -->
+<div class="group relative bg-surface-container rounded-2xl overflow-hidden hover:bg-surface-container-high transition-all duration-300">
+<div class="aspect-video relative overflow-hidden bg-surface-container-lowest">
+<img alt="星际之旅" class="w-full h-full object-cover opacity-30 blur-sm" data-alt="abstract swirling galaxy with vibrant purple and blue cosmic dust and distant stars" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMZh159quZ5-GPK4tAOzXp-jaZp2X-0sAiUI1lqDUXXbYTimlD2mTnDVBrxtm7EpRWnsfRM9MYD3yE2w5xC6F0tiGnyI2iWBdoxdIMTxCPzGVUGCwYR1WfQ1lW3aJpWHCITBwhbEdR6o2_bs4Jqldzd_V65Kf7AeaELY2-i51Dt3ZLAF4XrNkscBu5v8cohhB-K9MupZzS_bfPSl5KdYE2JC16Uuq4dUa-6My1ItGV8AK98kVy10QSqcdSEuVG14C5OY-yZA07Rw"/>
+<div class="absolute inset-0 flex flex-col items-center justify-center bg-background/40 backdrop-blur-[2px]">
+<div class="text-secondary font-headline text-2xl font-bold mb-2">68%</div>
+<div class="w-1/2 h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary w-[68%] relative">
+<div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+</div>
+</div>
+</div>
+<div class="absolute top-3 left-3 bg-surface-container/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/5 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[12px] text-primary animate-spin">sync</span>
+<span class="text-[10px] text-primary">正在生成...</span>
+</div>
+<button class="absolute top-3 right-3 text-white/50 hover:text-white p-1 rounded-full bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+<div class="absolute bottom-3 left-3 flex gap-2">
+<span class="px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] text-on-surface font-medium border border-white/10">电子</span>
+<span class="px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] text-on-surface font-medium border border-white/10">科幻</span>
+</div>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-medium text-on-surface mb-1 truncate">星际之旅</h3>
+<p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> 10分钟前更新</p>
+</div>
+</div>
+<!-- Card 3: Draft -->
+<div class="group relative bg-surface-container rounded-2xl overflow-hidden hover:bg-surface-container-high transition-all duration-300 border border-dashed border-outline-variant/30">
+<div class="aspect-video relative overflow-hidden bg-surface-container-lowest flex items-center justify-center group-hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant opacity-50">edit</span>
+<div class="absolute top-3 left-3 bg-surface-container/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/5 flex items-center gap-1.5">
+<span class="text-[10px] text-on-surface-variant">📝 草稿</span>
+</div>
+<button class="absolute top-3 right-3 text-white/50 hover:text-white p-1 rounded-full bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-medium text-on-surface-variant mb-1 truncate group-hover:text-on-surface transition-colors">未命名创意</h3>
+<p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> 1天前创建</p>
+</div>
+</div>
+<!-- Card 4: Failed -->
+<div class="group relative bg-surface-container rounded-2xl overflow-hidden hover:bg-surface-container-high transition-all duration-300">
+<div class="aspect-video relative overflow-hidden bg-error/5 flex flex-col items-center justify-center border-b border-error/10">
+<span class="material-symbols-outlined text-3xl text-error mb-2">warning</span>
+<span class="text-sm text-error/80">渲染引擎错误</span>
+<div class="absolute top-3 left-3 bg-error/10 backdrop-blur-md px-2.5 py-1 rounded-md border border-error/20 flex items-center gap-1.5">
+<span class="text-[10px] text-error">❌ 生成失败</span>
+</div>
+<button class="absolute top-3 right-3 text-white/50 hover:text-white p-1 rounded-full bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+<button class="absolute bottom-3 right-3 px-3 py-1 bg-surface-container-high hover:bg-surface-variant text-xs text-on-surface rounded border border-white/10 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">refresh</span> 重试
+                    </button>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-medium text-on-surface mb-1 truncate">失败的尝试</h3>
+<p class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> 2天前</p>
+</div>
+</div>
+</div>
+</main>
+</body></html>

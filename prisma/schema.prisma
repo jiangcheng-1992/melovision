@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  displayName  String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  projects     MvProject[]
+  billingProfile UserBillingProfile?
+  creditTransactions CreditTransaction[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model MvProject {
+  id                    String            @id @default(cuid())
+  userId                String
+  title                 String
+  conceptPrompt         String
+  customLyrics          String?
+  visualStyle           String
+  musicStyle            String
+  status                String            @default("draft")
+  generationStatus      String            @default("draft")
+  generationProgress    Int               @default(0)
+  selectedMusicOptionId String?
+  subtitleStyle         String            @default("发光霓虹 (Neon Glow)")
+  fontSize              Int               @default(70)
+  exportResolution      String            @default("1080p HD")
+  published             Boolean           @default(true)
+  likeCount             Int               @default(0)
+  playCount             Int               @default(0)
+  coverVersion          Int               @default(1)
+  coverImageUrl         String?
+  generatedVideoUrl     String?
+  generatedLastFrameUrl String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  musicOptions          MusicOption[]
+  scenes                StoryboardScene[]
+  generationJobs        GenerationJob[]
+  generationLogs        GenerationLog[]
+  exportJobs            ExportJob[]
+  storyboardSettings    StoryboardSettings?
+
+  @@index([userId])
+  @@index([status])
+  @@index([generationStatus])
+  @@index([published, status])
+}
+
+model MusicOption {
+  id           String    @id @default(cuid())
+  projectId    String
+  title        String
+  lyricSnippet String
+  lyrics       String?
+  durationSec  Int
+  bpm          Int
+  genre        String
+  tags         String
+  artworkUrl   String
+  audioUrl     String?
+  provider     String    @default("mock")
+  providerRef  String?
+  isSelected   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  project      MvProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model StoryboardScene {
+  id              String    @id @default(cuid())
+  projectId       String
+  sortOrder       Int
+  startSec        Int
+  endSec          Int
+  lyricLine       String
+  continuityLine  String?
+  prompt          String
+  previewImageUrl String?
+  resultVideoUrl  String?
+  generationTaskId String?
+  status          String    @default("ready")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         MvProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@unique([projectId, sortOrder])
+}
+
+model GenerationJob {
+  id              String          @id @default(cuid())
+  projectId       String
+  status          String          @default("pending")
+  provider        String          @default("mock")
+  providerTaskId  String?
+  progress        Int             @default(0)
+  totalScenes     Int             @default(0)
+  completedScenes Int             @default(0)
+  resultVideoUrl  String?
+  resultLastFrameUrl String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  errorMessage    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         MvProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  logs            GenerationLog[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([projectId, createdAt])
+}
+
+model GenerationLog {
+  id        String         @id @default(cuid())
+  projectId String
+  jobId     String?
+  level     String         @default("info")
+  message   String
+  createdAt DateTime       @default(now())
+  project   MvProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job       GenerationJob? @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([jobId])
+}
+
+model ExportJob {
+  id             String    @id @default(cuid())
+  projectId      String
+  status         String    @default("pending")
+  resolution     String
+  subtitleStyle  String
+  fontSize       Int
+  published      Boolean   @default(true)
+  fileName       String?
+  outputMimeType String?
+  outputContent  String?
+  errorMessage   String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        MvProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model StoryboardSettings {
+  id               String    @id @default(cuid())
+  projectId        String    @unique
+  styleTagsJson    String    @default("[]")
+  consistencyBoost Boolean   @default(true)
+  transitionStyle  String    @default("平滑淡入淡出 (Crossfade)")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  project          MvProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model UserBillingProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  planCode          String   @default("free")
+  billingCycle      String   @default("yearly")
+  creditBalance     Int      @default(10)
+  periodStartedAt   DateTime @default(now())
+  periodEndsAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([planCode])
+}
+
+model CreditTransaction {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String
+  amount        Int
+  balanceAfter  Int
+  description   String
+  referenceCode String?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type])
+}

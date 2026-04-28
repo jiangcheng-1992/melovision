@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MeloVision - 个人中心</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "surface": "#14121f",
+                        "on-tertiary-container": "#ffdecf",
+                        "surface-variant": "#363342",
+                        "on-tertiary-fixed-variant": "#783200",
+                        "on-tertiary": "#552100",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#25005a",
+                        "surface-container": "#201e2c",
+                        "secondary-container": "#03b5d3",
+                        "surface-tint": "#d2bbff",
+                        "surface-container-high": "#2b2836",
+                        "tertiary-fixed": "#ffdbca",
+                        "inverse-primary": "#732ee4",
+                        "surface-container-low": "#1c1a27",
+                        "on-secondary": "#003640",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "tertiary-container": "#aa4900",
+                        "on-background": "#e5e0f3",
+                        "surface-bright": "#3a3746",
+                        "primary-fixed": "#eaddff",
+                        "on-primary-container": "#ede0ff",
+                        "secondary-fixed": "#acedff",
+                        "on-secondary-container": "#00424e",
+                        "on-primary": "#3f008e",
+                        "outline-variant": "#4a4455",
+                        "secondary": "#4cd7f6",
+                        "on-tertiary-fixed": "#341100",
+                        "inverse-on-surface": "#312f3d",
+                        "background": "#14121f",
+                        "on-surface-variant": "#ccc3d8",
+                        "outline": "#958da1",
+                        "inverse-surface": "#e5e0f3",
+                        "surface-dim": "#14121f",
+                        "primary": "#d2bbff",
+                        "on-secondary-fixed": "#001f26",
+                        "primary-container": "#7c3aed",
+                        "on-surface": "#e5e0f3",
+                        "surface-container-highest": "#363342",
+                        "primary-fixed-dim": "#d2bbff",
+                        "error": "#ffb4ab",
+                        "tertiary": "#ffb690",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0e0c19",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb690"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: theme('colors.surface'); color: theme('colors.on-surface'); }
+        h1, h2, h3, h4, h5, h6, .font-headline, .font-display { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen bg-surface text-on-surface pb-24 md:pb-0">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full bg-[#0e0c19]/90 backdrop-blur-2xl border-b border-outline-variant/10 z-50">
+<div class="flex justify-between items-center w-full px-6 py-3 max-w-[1200px] mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-2xl" style="font-variation-settings: 'FILL' 1;">graphic_eq</span>
+<span class="text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#7C3AED] to-[#03B5D3] font-headline">MeloVision AI</span>
+<div class="ml-10 hidden lg:flex items-center space-x-6">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 text-sm font-label" href="#">工作台</a>
+<a class="text-on-surface-variant hover:text-on-surface text-sm font-label transition-colors" href="#">项目</a>
+<a class="text-on-surface-variant hover:text-on-surface text-sm font-label transition-colors" href="#">素材库</a>
+</div>
+</div>
+<!-- Right Actions -->
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-2 text-on-surface-variant bg-surface-container-highest/30 px-3 py-1.5 rounded-full border border-outline-variant/10">
+<span class="material-symbols-outlined text-[18px] text-secondary" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="text-xs font-bold">50 积分</span>
+</div>
+<button class="bg-[#2b2836] hover:bg-[#363342] text-on-surface px-5 py-1.5 rounded-full font-medium text-xs border border-outline-variant/20 transition-all">
+                    升级
+                </button>
+<div class="flex items-center space-x-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-primary/40 shadow-[0_0_10px_rgba(210,187,255,0.3)]">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Portrait of a young woman with neon lighting reflecting on her face, cyberpunk aesthetic, dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7uv5T6w7-SSm-SPqLc1lWayLuRDFd9-NHRRc40PqOD2qRHoC9IRBj-qStXWAfEs8Jd6tSLNTOCAOhdEKUWptbVJ-CRGm3YN4TvYs6e1cZsj2nehlAsROW8LkfRhxP2BGZzm0G8qV2Ni886tVPk5xlqG1196KgUavylEk9gxxwxFIJJFA6iLz0Ayo_-rGjFrj-RxqTTaMI2PctADmbTMvzAJC-uwm-BRND9eOSl_e01VvdBIBTzdX8RD0uQnwsuvOwpWdAWiYPfQ"/>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<main class="md:pt-20">
+<!-- Profile Banner -->
+<div class="relative h-64 md:h-80 overflow-hidden rounded-b-3xl">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Abstract liquid gradient background with deep violet, cyan, and dark purple hues, flowing smooth textures" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuArwG0d_fv7CP0y9193gvCci6NepUb0BoE61JFn0LHwYR5gADiV-b3S7lBg4MGOVbEBzUOnWstzEbw7QVaXrJtFKZ93osZ5CndUIt1SrqShD_N_5Rnt5Mu_9_VQ7_B_A0AxUjcECid4eQtJ2-kdqM15khvGnAXASfWkqUg-wV__LADy8HjHRq0gh5HMbj11eWgsA1QOZdUlQojE7aaXh2zHz8KlPIva0S3FosR8ASin8EsFcUd2pnmVrEnkFto0HH9wI0AEDW6VlA');"></div>
+<div class="absolute inset-0 bg-surface/40 backdrop-blur-md"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent"></div>
+</div>
+<div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 relative -mt-24 mb-12">
+<div class="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+<!-- User Info -->
+<div class="flex flex-col md:flex-row items-center md:items-end gap-6 z-10 w-full md:w-auto text-center md:text-left">
+<div class="relative">
+<img alt="StardustCreator Profile" class="w-32 h-32 rounded-full border-4 border-surface shadow-[0_0_30px_rgba(124,58,237,0.4)] object-cover bg-surface-container" data-alt="Portrait of a young woman with neon lighting reflecting on her face, cyberpunk aesthetic, dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfP0bPmajt3yED20k9FKlq6RLNrSflAfX3QAvzyWChBG_j3pmgfv4Id-8aRTWccES-vRxwZFK8oGxDtVJ_k6bdSZIsfTf-2eRVmfkfX9kUqblybwLSRg9Zz-UkCQFNHNs3Vq4GWXBEGi1yO0ZCpJqveHWmw5N_VitzrjKKN5ya_vb7h0K6MxeKDAe3vGPEHXXTH8G8xjbj8KvNUJ7WuNkILw1C6zcosc38_BPTnt4FQtQ7GMrTxvQ0oPYpEdu5sh_4oh_4W3HQQA"/>
+<div class="absolute bottom-2 right-2 w-4 h-4 bg-secondary rounded-full border-2 border-surface animate-pulse"></div>
+</div>
+<div class="mb-2">
+<div class="flex items-center justify-center md:justify-start gap-3 mb-1">
+<h1 class="text-3xl font-display font-bold text-on-surface">StardustCreator</h1>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-primary-container to-secondary-container text-white uppercase tracking-wider">PRO 会员</span>
+</div>
+<p class="text-on-surface-variant text-sm mb-3">用 AI 编织音乐与视觉的梦想 🎵✨</p>
+<div class="flex items-center justify-center md:justify-start gap-4 text-xs text-outline font-medium">
+<span><strong class="text-primary">23</strong> 作品</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span><strong class="text-primary">1.2K</strong> 获赞</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span><strong class="text-primary">8.5K</strong> 播放</span>
+</div>
+</div>
+</div>
+<!-- Action & Credits -->
+<div class="flex flex-col sm:flex-row items-center gap-4 z-10 w-full md:w-auto mt-4 md:mt-0">
+<button class="px-6 py-2 rounded-lg border border-outline-variant/30 bg-surface-variant/40 backdrop-blur-md text-on-surface text-sm font-medium hover:bg-surface-variant/60 transition-colors w-full sm:w-auto whitespace-nowrap">
+                        编辑资料
+                    </button>
+<div class="bg-surface-container-lowest/80 backdrop-blur-xl border border-outline-variant/20 rounded-xl p-4 w-full sm:w-64">
+<div class="flex justify-between items-center mb-2">
+<span class="text-sm font-medium text-on-surface">✨ 剩余积分</span>
+<span class="text-lg font-display font-bold text-secondary">47</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden mb-2">
+<div class="h-full bg-gradient-to-r from-primary to-secondary w-3/4 rounded-full"></div>
+</div>
+<a class="text-xs text-primary hover:text-secondary transition-colors inline-block text-right w-full" href="#">购买积分 →</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Tabs -->
+<div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+<div class="flex space-x-1 border-b border-outline-variant/20">
+<button class="px-6 py-3 text-sm font-medium text-primary border-b-2 border-primary">我的作品</button>
+<button class="px-6 py-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors">我喜欢的</button>
+<button class="px-6 py-3 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors">个人设置</button>
+</div>
+</div>
+<!-- Tab Content: My MVs -->
+<div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="group relative rounded-xl bg-surface-container-lowest border border-outline-variant/10 overflow-hidden hover:bg-surface-container-low transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.2)] hover:shadow-[0_10px_40px_rgba(124,58,237,0.1)] hover:-translate-y-1 flex flex-col">
+<div class="relative aspect-video overflow-hidden">
+<img alt="MV Thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Futuristic neon cityscape at night with glowing pink and blue lights, cyberpunk style, high detail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUaDYv_mg6ym_Z9gm7xvd_OOnYEImoaR9G7titsxOfKNBwatR52Eh-Ijl69jYQgZTkJuuSnM1C23WsN1VhQNsEqk6Gejtoo8smb83bl5E-pFHrWiQN5laBgpy4WBT9PcVn2kR3Y9JrszgXWLYBJ6r8X1OJ2FsvVlQqywIKbblqHR3YIbBzQI-fUJuW1c1dk4h_p4MIiIqiNmu29xlUKhW0FF8sNC6BEPhR-MiL_hoA2kvs1M7mexFA4Kb6kF68fh78qASdNz0W_A"/>
+<div class="absolute top-3 left-3 px-2 py-1 bg-green-500/20 border border-green-500/30 text-green-400 text-[10px] font-bold rounded backdrop-blur-md uppercase tracking-wide">
+                            已发布
+                        </div>
+<div class="absolute bottom-3 right-3 px-2 py-1 bg-surface/80 text-on-surface text-xs rounded font-mono backdrop-blur-md">
+                            03:42
+                        </div>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-base font-medium text-on-surface line-clamp-1 group-hover:text-primary transition-colors">Neon Nights in Neo-Tokyo</h3>
+<button class="text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<p class="text-xs text-outline mb-4">2023-10-24</p>
+<div class="mt-auto flex items-center gap-4 text-xs text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="visibility">visibility</span> 2.4K</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="favorite">favorite</span> 342</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group relative rounded-xl bg-surface-container-lowest border border-outline-variant/10 overflow-hidden hover:bg-surface-container-low transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.2)] hover:shadow-[0_10px_40px_rgba(124,58,237,0.1)] hover:-translate-y-1 flex flex-col">
+<div class="relative aspect-video overflow-hidden">
+<img alt="MV Thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Abstract fluid art with swirling deep purples, vibrant blues, and gold accents, ethereal mood" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhFhSsqvPiXpeyO6tvNfiV1L9D5q_c7kYiZrJ5NoX3e45Y2eEM_Wm_ouOw2sqIfzPflevqy6T3q8cIENT079SDxYcUnPNFvZhEcwmySaaEsCsdAmu6iHduZbMXudQErdf4k0KiSf4JlWLdkwfLODiOhBk-47-rST2M1Cc2rw4q61GDurz3obNr77mq4RgVq8PO1aIJ6dzM7XBDETjdsgYWVRTwjj8WpvRJOpmaFp2DKKx98-8c3hWwTKG6zgJPg8GQJ1clIghrsQ"/>
+<div class="absolute top-3 left-3 px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px] font-bold rounded backdrop-blur-md uppercase tracking-wide">
+                            草稿
+                        </div>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-base font-medium text-on-surface line-clamp-1 group-hover:text-primary transition-colors">Ethereal Soundscapes Vol. 2</h3>
+<button class="text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<p class="text-xs text-outline mb-4">2023-11-02</p>
+<div class="mt-auto flex items-center gap-4 text-xs text-on-surface-variant opacity-50">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="visibility">visibility</span> --</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="favorite">favorite</span> --</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group relative rounded-xl bg-surface-container-lowest border border-outline-variant/10 overflow-hidden hover:bg-surface-container-low transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.2)] hover:shadow-[0_10px_40px_rgba(124,58,237,0.1)] hover:-translate-y-1 flex flex-col">
+<div class="relative aspect-video overflow-hidden bg-surface-container-high flex items-center justify-center">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-container-low to-surface-container-highest"></div>
+<div class="w-16 h-16 rounded-full border-2 border-secondary/20 border-t-secondary animate-spin z-10"></div>
+<div class="absolute top-3 left-3 px-2 py-1 bg-secondary/20 border border-secondary/30 text-secondary text-[10px] font-bold rounded backdrop-blur-md uppercase tracking-wide flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+                            生成中
+                        </div>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-base font-medium text-on-surface line-clamp-1 group-hover:text-primary transition-colors">Cybernetic Lullaby</h3>
+<button class="text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<p class="text-xs text-outline mb-4">刚刚</p>
+<div class="mt-auto">
+<div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-2/3 rounded-full"></div>
+</div>
+<p class="text-[10px] text-secondary mt-1 text-right">67%</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

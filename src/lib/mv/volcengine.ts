@@ -1,0 +1,472 @@
+import "server-only";
+
+const VOLCENGINE_DEFAULT_BASE = "https://ark.cn-beijing.volces.com/api/v3";
+const VOLCENGINE_CHAT_MODEL = "doubao-1-5-lite-32k-250115";
+const VOLCENGINE_IMAGE_MODEL = "seedream-3-0-t2i-250415";
+const VOLCENGINE_VIDEO_MODEL = "doubao-seedance-1-0-pro-fast";
+const VOLCENGINE_TIMEOUT_MS = 30000;
+const VOLCENGINE_VIDEO_POLL_INTERVAL_MS = 5000;
+const VOLCENGINE_VIDEO_POLL_ATTEMPTS = 36;
+
+type StoryboardImageInput = {
+  prompt: string;
+  visualStyle: string;
+  aspectRatio?: string;
+  seed?: number;
+};
+
+type VideoSceneInput = {
+  sortOrder: number;
+  prompt: string;
+  lyricLine: string;
+  previewImageUrl?: string | null;
+};
+
+export type VolcengineVideoGenerationInput = {
+  title: string;
+  conceptPrompt: string;
+  visualStyle: string;
+  musicStyle: string;
+  scenes: VideoSceneInput[];
+  aspectRatio?: string;
+  durationSec?: number;
+  resolution?: string;
+  generateAudio?: boolean;
+};
+
+export type VolcengineVideoTask = {
+  provider: "volcengine";
+  taskId: string;
+  status: string;
+};
+
+export type VolcengineVideoTaskStatus = {
+  provider: "volcengine";
+  taskId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "expired" | "cancelled";
+  videoUrl?: string;
+  lastFrameUrl?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  raw?: unknown;
+};
+
+function nowMs() {
+  return Date.now();
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function logVolcengine(event: string, payload?: Record<string, unknown>) {
+  const timestamp = new Date().toISOString();
+  if (payload) {
+    console.info(`[volcengine] ${timestamp} ${event}`, payload);
+    return;
+  }
+
+  console.info(`[volcengine] ${timestamp} ${event}`);
+}
+
+function getVolcengineBaseUrl() {
+  return (process.env.VOLCENGINE_ARK_BASE_URL?.trim() || VOLCENGINE_DEFAULT_BASE).replace(/\/$/, "");
+}
+
+function getVolcengineApiKey() {
+  return process.env.VOLCENGINE_ARK_API_KEY?.trim() || "";
+}
+
+function getVolcengineImageModel() {
+  return process.env.VOLCENGINE_IMAGE_MODEL?.trim() || VOLCENGINE_IMAGE_MODEL;
+}
+
+function getVolcengineChatModel() {
+  return process.env.VOLCENGINE_CHAT_MODEL?.trim() || VOLCENGINE_CHAT_MODEL;
+}
+
+function getVolcengineVideoModel() {
+  return process.env.VOLCENGINE_VIDEO_MODEL?.trim() || VOLCENGINE_VIDEO_MODEL;
+}
+
+function getVolcengineVideoCallbackUrl() {
+  const explicit = process.env.VOLCENGINE_VIDEO_CALLBACK_URL?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const appUrl = process.env.NEXTAUTH_URL?.trim();
+  if (!appUrl) {
+    return undefined;
+  }
+
+  return `${appUrl.replace(/\/$/, "")}/api/webhooks/volcengine/video`;
+}
+
+function normalizeAspectRatio(value?: string | null) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return "16:9";
+  }
+
+  const mappings: Record<string, string> = {
+    "16 / 9": "16:9",
+    "16:9": "16:9",
+    "9:16": "9:16",
+    "1:1": "1:1",
+    "4:3": "4:3",
+    "3:4": "3:4",
+    "21:9": "21:9",
+  };
+
+  return mappings[normalized] || "16:9";
+}
+
+function getImageSizeForAspectRatio(value?: string | null) {
+  const ratio = normalizeAspectRatio(value);
+  const mappings: Record<string, string> = {
+    "16:9": "2560x1440",
+    "9:16": "1440x2560",
+    "1:1": "2048x2048",
+    "4:3": "2304x1728",
+    "3:4": "1728x2304",
+    "21:9": "2940x1260",
+  };
+
+  return mappings[ratio] || "1536x864";
+}
+
+function mapResolution(value?: string | null) {
+  const normalized = value?.toLowerCase().trim();
+  const model = getVolcengineVideoModel().toLowerCase();
+  if (!normalized) {
+    return "720p";
+  }
+
+  if (normalized.includes("1080")) {
+    if (model.includes("seedance-2-0-fast") || model.includes("ggl8b")) {
+      return "720p";
+    }
+
+    return "1080p";
+  }
+  if (normalized.includes("480")) return "480p";
+  return "720p";
+}
+
+function buildStoryboardImagePrompt(input: StoryboardImageInput) {
+  return [
+    input.prompt,
+    `整体视觉风格：${input.visualStyle}`,
+    "要求：高质量电影分镜图、单帧叙事明确、角色一致、镜头语言清晰、避免文字水印、避免多余边框。",
+  ].join("\n");
+}
+
+function buildVideoPrompt(input: VolcengineVideoGenerationInput) {
+  const sceneLines = input.scenes
+    .slice(0, 8)
+    .map(
+      (scene) =>
+        `Scene ${scene.sortOrder + 1}: ${scene.lyricLine}；镜头描述：${scene.prompt}`,
+    )
+    .join("\n");
+
+  return [
+    `为歌曲《${input.title}》生成一个高质量音乐短片。`,
+    `核心概念：${input.conceptPrompt}`,
+    `视觉风格：${input.visualStyle}`,
+    `音乐风格：${input.musicStyle}`,
+    "要求画面连贯、主体一致、镜头自然衔接、节奏贴合音乐、具有电影感。",
+    sceneLines,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+async function volcengineFetch(path: string, init?: RequestInit) {
+  const apiKey = getVolcengineApiKey();
+  if (!apiKey) {
+    throw new Error("VOLCENGINE_API_KEY_MISSING");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), VOLCENGINE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${getVolcengineBaseUrl()}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
+
+    if (!response.ok) {
+      const message =
+        data?.error?.message ||
+        data?.message ||
+        response.statusText ||
+        "request_failed";
+      throw new Error(`VOLCENGINE_HTTP_${response.status}:${message}`);
+    }
+
+    if (data?.error?.message) {
+      throw new Error(`VOLCENGINE_API_ERROR:${data.error.message}`);
+    }
+
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function isVolcengineEnabled() {
+  return Boolean(getVolcengineApiKey());
+}
+
+export async function optimizeStoryboardPromptWithVolcengine(input: {
+  projectTitle: string;
+  visualStyle: string;
+  musicStyle: string;
+  lyricLine: string;
+  prompt: string;
+}) {
+  if (!isVolcengineEnabled()) {
+    return null;
+  }
+
+  const payload = {
+    model: getVolcengineChatModel(),
+    messages: [
+      {
+        role: "system",
+        content:
+          "你是专业 MV 分镜导演与提示词优化助手。请输出一段可直接用于图像生成的中文分镜提示词，不要加解释、不要分点、不要 markdown。",
+      },
+      {
+        role: "user",
+        content: [
+          `项目标题：${input.projectTitle}`,
+          `视觉风格：${input.visualStyle}`,
+          `音乐风格：${input.musicStyle}`,
+          `歌词片段：${input.lyricLine}`,
+          `当前分镜提示词：${input.prompt}`,
+          "请强化主体一致性、镜头语言、动作连续性、空间层次、电影感和光影氛围，输出 1 段优化后的分镜提示词。",
+        ].join("\n"),
+      },
+    ],
+  };
+
+  const startedAt = nowMs();
+  logVolcengine("chat_optimize_start", {
+    model: payload.model,
+    projectTitle: input.projectTitle,
+  });
+
+  const response = await volcengineFetch("/chat/completions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const content = firstString(response?.choices?.[0]?.message?.content);
+
+  logVolcengine("chat_optimize_complete", {
+    model: payload.model,
+    totalMs: nowMs() - startedAt,
+    hasContent: Boolean(content),
+  });
+
+  if (!content) {
+    throw new Error("VOLCENGINE_CHAT_CONTENT_MISSING");
+  }
+
+  return content;
+}
+
+export async function generateStoryboardImageWithVolcengine(
+  input: StoryboardImageInput,
+) {
+  if (!isVolcengineEnabled()) {
+    logVolcengine("image_generation_skipped", {
+      reason: "VOLCENGINE_API_KEY_MISSING",
+    });
+    return null;
+  }
+
+  const payload = {
+    model: getVolcengineImageModel(),
+    prompt: buildStoryboardImagePrompt(input),
+    response_format: "url",
+    size: getImageSizeForAspectRatio(input.aspectRatio),
+    watermark: false,
+    ...(typeof input.seed === "number" ? { seed: input.seed } : {}),
+  };
+
+  const startedAt = nowMs();
+  logVolcengine("image_generation_start", {
+    model: payload.model,
+    size: payload.size,
+  });
+
+  const response = await volcengineFetch("/images/generations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const imageUrl = firstString(response?.data?.[0]?.url);
+  logVolcengine("image_generation_complete", {
+    model: payload.model,
+    totalMs: nowMs() - startedAt,
+    imageUrl: imageUrl ?? null,
+  });
+
+  if (!imageUrl) {
+    throw new Error("VOLCENGINE_IMAGE_URL_MISSING");
+  }
+
+  return imageUrl;
+}
+
+export async function createVideoGenerationTaskWithVolcengine(
+  input: VolcengineVideoGenerationInput,
+) {
+  if (!isVolcengineEnabled()) {
+    return null;
+  }
+
+  const firstFrameUrl = input.scenes.find((scene) => scene.previewImageUrl)?.previewImageUrl;
+  const content: Array<Record<string, unknown>> = [
+    {
+      type: "text",
+      text: buildVideoPrompt(input),
+    },
+  ];
+
+  if (firstFrameUrl) {
+    content.push({
+      type: "image_url",
+      role: "first_frame",
+      image_url: {
+        url: firstFrameUrl,
+      },
+    });
+  }
+
+  const payload: Record<string, unknown> = {
+    model: getVolcengineVideoModel(),
+    content,
+    resolution: mapResolution(input.resolution),
+    ratio: normalizeAspectRatio(input.aspectRatio),
+    duration: Math.max(4, Math.min(12, input.durationSec ?? 8)),
+    generate_audio: Boolean(input.generateAudio),
+    return_last_frame: true,
+    watermark: false,
+  };
+
+  const callbackUrl = getVolcengineVideoCallbackUrl();
+  if (callbackUrl) {
+    payload.callback_url = callbackUrl;
+  }
+
+  const startedAt = nowMs();
+  logVolcengine("video_submit_start", {
+    model: payload.model,
+    hasFirstFrame: Boolean(firstFrameUrl),
+    duration: payload.duration,
+    ratio: payload.ratio,
+    resolution: payload.resolution,
+  });
+
+  const response = await volcengineFetch("/contents/generations/tasks", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const taskId = firstString(response?.id, response?.task_id, response?.data?.id);
+  const status = firstString(response?.status, response?.data?.status) || "queued";
+
+  logVolcengine("video_submit_complete", {
+    totalMs: nowMs() - startedAt,
+    taskId: taskId ?? null,
+    status,
+  });
+
+  if (!taskId) {
+    throw new Error("VOLCENGINE_VIDEO_TASK_ID_MISSING");
+  }
+
+  return {
+    provider: "volcengine" as const,
+    taskId,
+    status,
+  };
+}
+
+export async function getVideoGenerationTaskWithVolcengine(taskId: string) {
+  const response = await volcengineFetch(
+    `/contents/generations/tasks/${encodeURIComponent(taskId)}`,
+    { method: "GET" },
+  );
+
+  const status = (firstString(response?.status) || "running") as VolcengineVideoTaskStatus["status"];
+
+  return {
+    provider: "volcengine" as const,
+    taskId,
+    status,
+    videoUrl: firstString(response?.content?.video_url),
+    lastFrameUrl: firstString(response?.content?.last_frame_url),
+    errorCode: firstString(response?.error?.code),
+    errorMessage: firstString(response?.error?.message),
+    raw: response,
+  };
+}
+
+export async function previewLiveVolcengineVideoTask(
+  input: VolcengineVideoGenerationInput,
+) {
+  const createdTask = await createVideoGenerationTaskWithVolcengine(input);
+  if (!createdTask) {
+    return {
+      enabled: false,
+      warning: "VOLCENGINE_ARK_API_KEY 未配置，无法发起真实请求",
+    };
+  }
+
+  const polls: VolcengineVideoTaskStatus[] = [];
+
+  for (let attempt = 0; attempt < VOLCENGINE_VIDEO_POLL_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await sleep(VOLCENGINE_VIDEO_POLL_INTERVAL_MS);
+    }
+
+    const detail = await getVideoGenerationTaskWithVolcengine(createdTask.taskId);
+    polls.push(detail);
+
+    if (["succeeded", "failed", "expired", "cancelled"].includes(detail.status)) {
+      break;
+    }
+  }
+
+  return {
+    enabled: true,
+    createdTask,
+    polls,
+  };
+}

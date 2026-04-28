@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MeloVision - Create</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#ffb690",
+                        "surface-dim": "#14121f",
+                        "primary-fixed": "#eaddff",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-error": "#690005",
+                        "on-tertiary": "#552100",
+                        "inverse-primary": "#732ee4",
+                        "on-surface": "#e5e0f3",
+                        "inverse-on-surface": "#312f3d",
+                        "surface-variant": "#363342",
+                        "tertiary-fixed-dim": "#ffb690",
+                        "on-surface-variant": "#ccc3d8",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "inverse-surface": "#e5e0f3",
+                        "outline-variant": "#4a4455",
+                        "on-primary-container": "#ede0ff",
+                        "surface-tint": "#d2bbff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "surface-container-low": "#1c1a27",
+                        "on-secondary-fixed": "#001f26",
+                        "surface": "#14121f",
+                        "surface-container-high": "#2b2836",
+                        "on-secondary": "#003640",
+                        "on-tertiary-container": "#ffdecf",
+                        "primary-fixed-dim": "#d2bbff",
+                        "secondary": "#4cd7f6",
+                        "tertiary-fixed": "#ffdbca",
+                        "secondary-container": "#03b5d3",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "error": "#ffb4ab",
+                        "on-tertiary-fixed-variant": "#783200",
+                        "on-background": "#e5e0f3",
+                        "secondary-fixed": "#acedff",
+                        "tertiary-container": "#aa4900",
+                        "outline": "#958da1",
+                        "on-secondary-container": "#00424e",
+                        "surface-container-highest": "#363342",
+                        "primary": "#d2bbff",
+                        "surface-bright": "#3a3746",
+                        "on-primary": "#3f008e",
+                        "surface-container": "#201e2c",
+                        "primary-container": "#7c3aed",
+                        "on-tertiary-fixed": "#341100",
+                        "on-primary-fixed": "#25005a",
+                        "background": "#14121f",
+                        "surface-container-lowest": "#0e0c19"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #14121f; color: #e5e0f3; font-family: 'Inter', sans-serif; position: relative; }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        .glass-panel { background: rgba(54, 51, 66, 0.4); backdrop-filter: blur(16px); border: 1px solid rgba(74, 68, 85, 0.2); }
+        .ambient-shadow { box-shadow: 0 8px 32px 0 rgba(124, 58, 237, 0.15); }
+        .gradient-text { background: linear-gradient(to right, #d2bbff, #4cd7f6); -webkit-background-clip: text; color: transparent; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24 !important; }
+    </style>
+</head>
+<body class="min-h-screen pb-32 md:pb-24 selection:bg-primary-container selection:text-white">
+<!-- TopNavBar -->
+<nav class="bg-[#14121F]/60 backdrop-blur-[20px] font-['Space_Grotesk'] tracking-tight shadow-[0_20px_40px_rgba(229,224,243,0.04)] fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-16 border-b border-white/5"><div class="flex items-center gap-4 md:gap-8">
+<a class="flex items-center h-8 md:h-10" href="#">
+<img alt="MeloVision" class="h-full w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0uiLI74ijRHa_kKFBwewnK7hE3c4NwWaPOs3XjXYy70ZXvkRFQS94sg4yLuXn_EgjGk77ljY1zzDnllHiYGYG1MEa1Rn-yqrrY9HLySX6TWXG-rGY4xn3-NzMPQfmWoqm2K_9R-wcSHCZn0B9Yy5J1JlJTWalu8r1mJOyXEn3ViZATV0-SrIMyo0meeWDSQVYzNTgWs2Px-0w3qRcupUL4ToNq979O_egFeX7z4OjYhjNqrPR5lDzl8I-r1qwiTWEpq2luagbNI"/>
+</a>
+<div class="hidden md:flex items-center gap-6">
+<!-- Active Nav Item -->
+<a class="text-[#D2BBFF] border-b-2 border-[#7C3AED] py-4 text-sm font-medium hover:text-[#4CD7F6] transition-colors" href="#">工作台</a>
+<!-- Inactive Nav Items -->
+<a class="text-[#363342] py-4 text-sm font-medium hover:text-[#4CD7F6] transition-colors" href="#">项目</a>
+<a class="text-[#363342] py-4 text-sm font-medium hover:text-[#4CD7F6] transition-colors" href="#">素材库</a>
+</div>
+</div>
+<div class="flex items-center gap-4 md:gap-6">
+<div class="flex items-center gap-1 md:gap-2 text-xs md:text-sm font-medium text-primary">
+<span class="material-symbols-outlined text-secondary text-lg md:text-xl">stars</span>
+<span class="hidden sm:inline">50 积分</span>
+</div>
+<button class="bg-surface-container-highest hover:bg-surface-variant text-on-surface px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all duration-200 ease-in-out hover:scale-[1.02] border border-outline-variant/20">
+                升级
+            </button>
+<div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-primary-container to-secondary-container p-[1px] cursor-pointer scale-95 active:scale-90 transition-transform">
+<img alt="User Profile" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV3NxnH6io2B4wgTCLH-ZmMdr8cxfWWv-ru-RuorkWMm6-WH2kaRN5dVrWP-Wgj6UHuCJp9PJ7yMIEISdUS1iou9Nw9Xj_ViYrWTvID4OsSeiaXnjejBDdH4PB7ea4PfpkRMqaK7c6no0sGt6OdA443c5UClrYAzJFsUoKXQ7qo3YkmjieKowC3LVms0b9bGYq18Eg3dab-1tVLGdSkvlc1w9nTC__RTOhQR7HgCOWD_5kmPuYPDUTFA6UGE4zwXKxy85PnbRNaw"/>
+</div>
+</div></nav>
+<!-- Main Content -->
+<main class="max-w-5xl mx-auto px-4 sm:px-6 pt-24 md:pt-28 pb-12">
+<!-- Stepper -->
+<div class="flex items-center justify-between mb-8 relative px-2 md:px-4">
+<div class="absolute left-8 right-8 top-1/2 h-0.5 bg-surface-container-low -z-10 -translate-y-1/2 hidden md:block"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary-container text-white flex items-center justify-center font-bold text-xs md:text-sm shadow-[0_0_20px_rgba(124,58,237,0.4)]">1</div>
+<span class="text-xs md:text-sm font-medium text-primary">描述</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-50">
+<div class="w-2 h-2 rounded-full bg-surface-container-high md:hidden mt-3"></div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface items-center justify-center font-bold text-sm hidden md:flex">2</div>
+<span class="text-xs md:text-sm font-medium text-on-surface-variant hidden md:block">音乐</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-50">
+<div class="w-2 h-2 rounded-full bg-surface-container-high md:hidden mt-3"></div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface items-center justify-center font-bold text-sm hidden md:flex">3</div>
+<span class="text-xs md:text-sm font-medium text-on-surface-variant hidden md:block">分镜</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-50">
+<div class="w-2 h-2 rounded-full bg-surface-container-high md:hidden mt-3"></div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface items-center justify-center font-bold text-sm hidden md:flex">4</div>
+<span class="text-xs md:text-sm font-medium text-on-surface-variant hidden md:block">生成</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-50">
+<div class="w-2 h-2 rounded-full bg-surface-container-high md:hidden mt-3"></div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface items-center justify-center font-bold text-sm hidden md:flex">5</div>
+<span class="text-xs md:text-sm font-medium text-on-surface-variant hidden md:block">导出</span>
+</div>
+</div>
+<!-- Subtle Gradient Separator -->
+<div class="h-px w-full bg-gradient-to-r from-primary/30 via-transparent to-secondary/30 mb-6 md:mb-8"></div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+<!-- Left Column: Form -->
+<div class="lg:col-span-7 space-y-6 md:space-y-8">
+<!-- Title & Description -->
+<div class="glass-panel rounded-[16px] md:rounded-[24px] p-5 md:p-6 ambient-shadow">
+<h2 class="text-lg md:text-xl font-headline font-semibold mb-5 md:mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">edit_document</span> 核心创意
+                    </h2>
+<div class="space-y-5 md:space-y-6">
+<div>
+<label class="block text-sm font-medium text-on-surface-variant mb-2">给你的 MV 起个名字</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-[12px] md:rounded-[16px] px-4 py-3 min-h-[44px] text-on-surface focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-outline" placeholder="例如：星际之旅" type="text"/>
+</div>
+<div>
+<div class="flex justify-between items-end mb-2">
+<label class="block text-sm font-medium text-on-surface-variant">描述你的 MV 创意</label>
+<span class="text-xs text-outline">0 / 500</span>
+</div>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-[12px] md:rounded-[16px] px-4 py-3 min-h-[120px] text-on-surface focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-outline font-body resize-none" placeholder="描述你想要的氛围、故事和感觉..." rows="6"></textarea>
+</div>
+<!-- Lyrics -->
+<div class="pt-2 border-t border-surface-container">
+<button class="flex items-center justify-between w-full py-3 min-h-[44px] group">
+<span class="text-sm font-medium text-on-surface group-hover:text-primary transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">lyrics</span> 📝 添加自定义歌词 (可选)
+                                </span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">expand_more</span>
+</button>
+<div class="mt-4 hidden">
+<!-- Collapsed state for simplicity -->
+</div>
+</div>
+</div>
+</div>
+<!-- Advanced Options -->
+<div class="glass-panel rounded-[16px] md:rounded-[24px] p-5 md:p-6">
+<button class="flex items-center justify-between w-full py-1 min-h-[44px] group">
+<span class="font-headline font-semibold flex items-center gap-2 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">tune</span> 高级设置
+                        </span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Right Column: Styles -->
+<div class="lg:col-span-5 space-y-6 md:space-y-8">
+<!-- Visual Style -->
+<div class="glass-panel rounded-[16px] md:rounded-[24px] p-5 md:p-6">
+<h2 class="text-lg md:text-xl font-headline font-semibold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">palette</span> 视觉风格
+                    </h2>
+<div class="grid grid-cols-2 gap-3">
+<div class="relative group cursor-pointer rounded-[12px] md:rounded-[16px] overflow-hidden border-2 border-primary shadow-[0_0_15px_rgba(124,58,237,0.3)]">
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent z-10"></div>
+<img alt="Cyberpunk" class="w-full h-20 md:h-24 object-cover" data-alt="neon lit cyberpunk street scene at night with glowing signs and rain reflections" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPz3bki_DrNoU_Gbn-xyEbOvRoVaCbaR_j5kycQL8a5PcRVev0BTN6qwJkLataQSLlykXxeq_YbwmieoUjnE3kYgch0m4jnFjZ8rp2b35zSOTFZj4xDm-xhzX1yndMgNNCvdaCpkIvi9_N2x88rOWPyvIq3tMwS-9mzJt0wbD8l78KZZme6tCU4Bxc8yeE7DSn1sWy1mUtm5IIzrDiYN7JE4nKw18e8Ss1d5rwj8kKd8L30xnjNfqNG2KVIbQ4fAyoKcaFfQe58w"/>
+<span class="absolute bottom-2 left-3 z-20 text-xs md:text-sm font-medium text-white">Cyberpunk</span>
+</div>
+<div class="relative group cursor-pointer rounded-[12px] md:rounded-[16px] overflow-hidden border-2 border-transparent hover:border-outline-variant transition-colors">
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent z-10 opacity-80"></div>
+<img alt="Anime" class="w-full h-20 md:h-24 object-cover" data-alt="anime style landscape with fluffy clouds and lush green fields under blue sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKoxsZZairBR3EawWK5fflPFwjDKDafiE6o3V0V27IMImrOj6msPy6RtexKycNPv1F20DRwHphqE3Up8vPEnJkk9POZaf3DAPI0oRSSMyXOi31vemmkd1lJ6NFqnjDYUx-dXTwTfVIKVekjfWz1sLXul8MFwUDuKtMUSwKg2ZkeiYJzZ0OaXQ2aX9KtJgs5dLsKt6NL8LmVrH1U-oV31tB3K31_j3WGH4Fdq5C5StcP_9O9oPwquTxyLiXB-aq6ougLmN-m5co7A"/>
+<span class="absolute bottom-2 left-3 z-20 text-xs md:text-sm font-medium text-on-surface-variant">Anime</span>
+</div>
+<div class="relative group cursor-pointer rounded-[12px] md:rounded-[16px] overflow-hidden border-2 border-transparent hover:border-outline-variant transition-colors">
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent z-10 opacity-80"></div>
+<img alt="Cinematic" class="w-full h-20 md:h-24 object-cover" data-alt="dramatic cinematic lighting on a moody landscape with deep shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbnmFkXUaIhBK6OR88gXGsxAd0Qx0DwJ0ys9t3i9Mg8vaKBrva21C0nSzb04d6UGO_EOT_c1ZE7stR_2UFuqtovi4VtcVsIfcH3lIXC3H-VOQjGKyncSX9WTvYskxHCEosEdW3Sp8FMJhkFbJdqehtMax0I5Ap-nLdKj7xDnIOk3tM1TppsKr8cgSg84_8Rq9B_jBpafJGOhSiJaHVSw9IJZa-MUC5h8TPKmI5MzJ8MtW0hsZ6d-i43fs6Z4Eyn0Lk7BaRpBBrmw"/>
+<span class="absolute bottom-2 left-3 z-20 text-xs md:text-sm font-medium text-on-surface-variant">Cinematic</span>
+</div>
+<div class="relative group cursor-pointer rounded-[12px] md:rounded-[16px] overflow-hidden border-2 border-transparent hover:border-outline-variant transition-colors">
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent z-10 opacity-80"></div>
+<img alt="Ink Wash" class="w-full h-20 md:h-24 object-cover" data-alt="traditional chinese ink wash painting style landscape with misty mountains" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2mWTXcmplnqbjgE2DW04EWF81vijdO2MJF8mwTBRvcp-4Yj8ILxIkRI_vCKFkvf7qJfJIS-CBQ7DLcv9Wzh7aaBSxu0hHA0x2G8DTSboBOwMxia_cXuCWR1h-9HtRgUsp5ziOR05XzpcRwFxfkDkIciVAWS2H9bR1iQmlv2TKUmEAP_uSWDjoQ4QSXgcj2lomWJH7r-bSDFA7juX7DDJPsdxqHfgItv3vpI-qcnCsxGJtgYc7BojteFdMky5Yd4F-Db-s6Ywbjw"/>
+<span class="absolute bottom-2 left-3 z-20 text-xs md:text-sm font-medium text-on-surface-variant">水墨 (Ink)</span>
+</div>
+</div>
+</div>
+<!-- Music Style -->
+<div class="glass-panel rounded-[16px] md:rounded-[24px] p-5 md:p-6">
+<h2 class="text-lg md:text-xl font-headline font-semibold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">music_note</span> 音乐风格
+                    </h2>
+<div class="flex flex-wrap gap-2 md:gap-3">
+<button class="px-4 py-2 min-h-[44px] rounded-full bg-surface-container border border-primary text-primary text-sm font-medium">Pop</button>
+<button class="px-4 py-2 min-h-[44px] rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:border-outline-variant text-sm font-medium transition-colors">Rock</button>
+<button class="px-4 py-2 min-h-[44px] rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:border-outline-variant text-sm font-medium transition-colors">Lo-fi</button>
+<button class="px-4 py-2 min-h-[44px] rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:border-outline-variant text-sm font-medium transition-colors">国风</button>
+<button class="px-4 py-2 min-h-[44px] rounded-full bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:border-outline-variant text-sm font-medium transition-colors">Electronic</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar / Mobile Tab Bar -->
+<div class="bg-surface-variant/60 backdrop-blur-2xl font-inter body-lg font-bold docked full-width bottom-0 rounded-t-2xl glassmorphism with 20% outline-variant ghost border shadow-[0_-8px_40px_-12px_rgba(124,58,237,0.3)] fixed bottom-0 left-0 w-full z-50 flex flex-col md:flex-row justify-between items-center px-4 md:px-8 py-3 md:py-4 border-t border-outline-variant/20 gap-3 md:gap-0 pb-safe">
+<div class="text-on-surface flex items-center gap-2 font-medium text-sm md:text-base w-full md:w-auto justify-center md:justify-start">
+<span class="material-symbols-outlined text-secondary">payments</span> 预计消耗: 25 积分
+        </div>
+<button class="bg-surface-container text-on-surface-variant rounded-xl px-6 md:px-8 py-3 min-h-[48px] w-full md:w-auto opacity-50 cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-200 ease-in-out hover:scale-[1.02] text-sm md:text-base" disabled="">
+            🎵 开始生成音乐 →
+        </button>
+</div>
+<!-- Safe area padding for mobile bottom nav -->
+<style>
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+</style>
+</body></html>

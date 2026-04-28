@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: melovision
+    runtime: node
+    plan: starter
+    buildCommand: npm install -g pnpm@10.33.2 && pnpm install --frozen-lockfile && pnpm run render:build
+    startCommand: pnpm run render:start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        value: file:/var/data/dev.db
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: SUNO_API_BASE
+        sync: false
+      - key: SUNO_API_KEY
+        sync: false
+      - key: SUNO_CALLBACK_URL
+        sync: false
+      - key: VOLCENGINE_ARK_BASE_URL
+        sync: false
+      - key: VOLCENGINE_ARK_API_KEY
+        sync: false
+      - key: VOLCENGINE_IMAGE_MODEL
+        sync: false
+      - key: VOLCENGINE_CHAT_MODEL
+        sync: false
+      - key: VOLCENGINE_VIDEO_MODEL
+        sync: false
+      - key: VOLCENGINE_VIDEO_CALLBACK_URL
+        sync: false
+    disk:
+      name: melovision-data
+      mountPath: /var/data
+      sizeGB: 1

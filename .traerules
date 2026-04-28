@@ -1,0 +1,28 @@
+# Trae behavior rules - preserve Stitch designs exactly
+
+## Never
+1. Do not modify any element's className list
+2. Do not modify any element's style attribute
+3. Do not modify the DOM structure
+4. Do not modify SVG contents
+5. Do not "optimize" Tailwind classes
+6. Do not replace arbitrary values with theme tokens
+7. Do not rename CSS variables
+8. Do not replace existing Stitch controls with shadcn/ui
+
+## Allowed and encouraged
+1. Extract repeated JSX into child components without changing className
+2. Replace hardcoded data with props or hook data
+3. Add onClick / onChange / onSubmit handlers
+4. Replace <a href> with Next.js <Link>
+5. Replace <img src> with next/image while keeping className
+6. Replace mock data with react-query useQuery
+7. Integrate Zustand store without affecting styles
+
+## Visual acceptance rule
+After each page change, explicitly state:
+"I did not modify any className or style, only [specific change]"
+
+## Source of truth
+_stitch-source/ is the immutable source of truth.
+Any visual disagreement must be resolved against the .html files in that directory.
