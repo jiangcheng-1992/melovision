@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { PublicTopbar } from "@/components/site/public-topbar";
 
 export const metadata: Metadata = {
   title: "隐私政策 - MeloVision",
@@ -32,7 +33,8 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#14121f] px-6 py-12 text-[#e5e0f3]">
+    <div className="min-h-screen bg-[#14121f] px-6 py-12 pt-24 text-[#e5e0f3]">
+      <PublicTopbar sourcePage="privacy" />
       <div className="mx-auto max-w-3xl">
         <Link
           href="/interfaces/register"

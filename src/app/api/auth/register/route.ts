@@ -31,47 +31,52 @@ function redirectWithError(request: Request, error: string) {
 }
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
-  const parsed = registerSchema.safeParse({
-    displayName: formData.get("displayName"),
-    email: formData.get("email"),
-    password: formData.get("password"),
-    terms: formData.get("terms"),
-  });
+  try {
+    const formData = await request.formData();
+    const parsed = registerSchema.safeParse({
+      displayName: formData.get("displayName"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+      terms: formData.get("terms"),
+    });
 
-  if (!parsed.success) {
-    return redirectWithError(request, parsed.error.issues[0]?.message ?? "注册信息不完整");
+    if (!parsed.success) {
+      return redirectWithError(request, parsed.error.issues[0]?.message ?? "注册信息不完整");
+    }
+
+    const { displayName, email, password } = parsed.data;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      return redirectWithError(request, "该邮箱已注册，请直接登录");
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    const user = await prisma.user.create({
+      data: {
+        displayName,
+        email,
+        passwordHash,
+      },
+    });
+
+    await ensureBillingProfile(user.id);
+
+    const session = await createSession(user.id);
+    const response = NextResponse.redirect(
+      new URL("/interfaces/projects?auth=registered", request.url),
+    );
+
+    setSessionCookie(response, session.token, session.expiresAt);
+
+    return response;
+  } catch (error) {
+    console.error("[auth/register] failed", error);
+    return redirectWithError(request, "注册服务暂时不可用，请稍后重试");
   }
-
-  const { displayName, email, password } = parsed.data;
-
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-
-  if (existingUser) {
-    return redirectWithError(request, "该邮箱已注册，请直接登录");
-  }
-
-  const passwordHash = await hashPassword(password);
-
-  const user = await prisma.user.create({
-    data: {
-      displayName,
-      email,
-      passwordHash,
-    },
-  });
-
-  await ensureBillingProfile(user.id);
-
-  const session = await createSession(user.id);
-  const response = NextResponse.redirect(
-    new URL("/interfaces/projects?auth=registered", request.url),
-  );
-
-  setSessionCookie(response, session.token, session.expiresAt);
-
-  return response;
 }

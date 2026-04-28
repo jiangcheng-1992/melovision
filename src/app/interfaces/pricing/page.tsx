@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { PricingBillingToggle } from "@/components/interfaces/pricing-billing-toggle";
-import { MarketingTopbar } from "@/components/site/marketing-topbar";
+import { PublicTopbar } from "@/components/site/public-topbar";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CREDIT_COST_CATALOG, PLAN_CATALOG } from "@/lib/billing/catalog";
 import { getBillingOverviewForUser } from "@/lib/billing/service";
@@ -70,36 +70,7 @@ export default async function PricingPage() {
     <div className="relative min-h-screen bg-[#14121f] font-sans text-[#e5e0f3] antialiased">
       <div className="pointer-events-none fixed inset-0 z-[-1] opacity-[0.03] mix-blend-overlay [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_200_200%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22noiseFilter%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%220.65%22_numOctaves=%223%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')]" />
 
-      <MarketingTopbar
-        sourcePage="pricing"
-        navItems={[
-          { href: "/", label: "产品展示", sourcePage: "pricing" },
-          { href: "/interfaces/explore", label: "作品广场", sourcePage: "pricing" },
-          {
-            href: "/interfaces/pricing",
-            label: "价格方案",
-            active: true,
-            sourcePage: "pricing",
-          },
-          { href: "/interfaces/create", label: "工作台", sourcePage: "pricing" },
-        ]}
-        rightSlot={
-          <>
-            <Link
-              href="/interfaces/login"
-              className="hidden text-sm text-[#a9a2ba] transition-colors hover:text-[#f5f3ff] sm:block"
-            >
-              登录
-            </Link>
-            <Link
-              href="/interfaces/register"
-              className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#03b5d3] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.24)] transition-all duration-200 hover:scale-[1.02]"
-            >
-              开始使用
-            </Link>
-          </>
-        }
-      />
+      <PublicTopbar activeNav="pricing" sourcePage="pricing" />
 
       <main className="mx-auto max-w-[1200px] px-6 pt-28 pb-24">
         <div className="mx-auto mb-16 max-w-3xl text-center">
@@ -233,13 +204,13 @@ export default async function PricingPage() {
               <div className="flex flex-col gap-4">
                 <Link
                   className="text-[#ccc3d8]/70 transition-all hover:translate-x-1 hover:text-[#4cd7f6]"
-                  href="/interfaces/register"
+                  href="/interfaces/privacy"
                 >
                   Privacy Policy
                 </Link>
                 <Link
                   className="text-[#ccc3d8]/70 transition-all hover:translate-x-1 hover:text-[#4cd7f6]"
-                  href="/interfaces/register"
+                  href="/interfaces/terms"
                 >
                   Terms of Service
                 </Link>

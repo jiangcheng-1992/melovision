@@ -16,38 +16,43 @@ function redirectWithError(request: Request, error: string) {
 }
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
-  const parsed = loginSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
+  try {
+    const formData = await request.formData();
+    const parsed = loginSchema.safeParse({
+      email: formData.get("email"),
+      password: formData.get("password"),
+    });
 
-  if (!parsed.success) {
-    return redirectWithError(request, parsed.error.issues[0]?.message ?? "登录信息不完整");
+    if (!parsed.success) {
+      return redirectWithError(request, parsed.error.issues[0]?.message ?? "登录信息不完整");
+    }
+
+    const { email, password } = parsed.data;
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return redirectWithError(request, "账号或密码错误");
+    }
+
+    const validPassword = await verifyPassword(password, user.passwordHash);
+
+    if (!validPassword) {
+      return redirectWithError(request, "账号或密码错误");
+    }
+
+    const session = await createSession(user.id);
+    const response = NextResponse.redirect(
+      new URL("/interfaces/projects?auth=logged-in", request.url),
+    );
+
+    setSessionCookie(response, session.token, session.expiresAt);
+
+    return response;
+  } catch (error) {
+    console.error("[auth/login] failed", error);
+    return redirectWithError(request, "登录服务暂时不可用，请稍后重试");
   }
-
-  const { email, password } = parsed.data;
-
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
-
-  if (!user) {
-    return redirectWithError(request, "账号或密码错误");
-  }
-
-  const validPassword = await verifyPassword(password, user.passwordHash);
-
-  if (!validPassword) {
-    return redirectWithError(request, "账号或密码错误");
-  }
-
-  const session = await createSession(user.id);
-  const response = NextResponse.redirect(
-    new URL("/interfaces/projects?auth=logged-in", request.url),
-  );
-
-  setSessionCookie(response, session.token, session.expiresAt);
-
-  return response;
 }

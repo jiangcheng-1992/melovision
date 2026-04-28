@@ -6,15 +6,19 @@ import {
 } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  const token = cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`))
-    ?.split("=")[1];
+  try {
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const token = cookieHeader
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`))
+      ?.split("=")[1];
 
-  if (token) {
-    await clearSessionByToken(token);
+    if (token) {
+      await clearSessionByToken(token);
+    }
+  } catch (error) {
+    console.error("[auth/logout] failed", error);
   }
 
   const response = NextResponse.redirect(

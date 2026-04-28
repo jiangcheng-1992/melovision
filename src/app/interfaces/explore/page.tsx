@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { ExploreBrowser } from "@/components/interfaces/explore-browser";
-import { MarketingTopbar } from "@/components/site/marketing-topbar";
+import { PublicTopbar } from "@/components/site/public-topbar";
 import { getExploreFeed } from "@/lib/explore/service";
 
 export const metadata: Metadata = {
@@ -26,36 +26,7 @@ export default async function ExplorePage() {
     <div className="min-h-screen overflow-x-hidden bg-[#14121f] text-[#e5e0f3]">
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.03] [background-image:radial-gradient(#ffffff_0.6px,transparent_0.6px)] [background-size:12px_12px]" />
 
-      <MarketingTopbar
-        sourcePage="explore"
-        navItems={[
-          { href: "/", label: "产品展示", sourcePage: "explore" },
-          {
-            href: "/interfaces/explore",
-            label: "作品广场",
-            active: true,
-            sourcePage: "explore",
-          },
-          { href: "/interfaces/pricing", label: "价格方案", sourcePage: "explore" },
-          { href: "/interfaces/create", label: "工作台", sourcePage: "explore" },
-        ]}
-        rightSlot={
-          <>
-            <Link
-              className="hidden text-sm text-[#a9a2ba] transition-colors hover:text-[#f5f3ff] sm:block"
-              href="/interfaces/login"
-            >
-              登录
-            </Link>
-            <Link
-              href="/interfaces/register"
-              className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#03b5d3] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.24)] transition-all duration-200 hover:scale-[1.02]"
-            >
-              开始使用
-            </Link>
-          </>
-        }
-      />
+      <PublicTopbar activeNav="explore" sourcePage="explore" />
 
       <nav className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around border-t border-[#4a4455]/20 bg-[#14121f]/80 px-2 backdrop-blur-xl md:hidden">
         <Link className="flex flex-col items-center gap-1 text-[#d2bbff]" href="/interfaces/explore">

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, Mail, PlayCircle } from "lucide-react";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { PasswordInput } from "@/components/auth/password-input";
-import { InteractiveButton } from "@/components/debug/interactive-button";
+import { PublicTopbar } from "@/components/site/public-topbar";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
@@ -61,6 +61,7 @@ export default async function LoginPage({
 
   return (
     <div className="min-h-screen bg-[#14121f] text-[#e5e0f3] antialiased selection:bg-[#7c3aed]/30 selection:text-[#d2bbff] md:flex">
+      <PublicTopbar variant="login" sourcePage="login" />
       <section className="relative flex w-full flex-col justify-center overflow-hidden bg-gradient-to-br from-[#7c3aed] via-[#3f008e] to-[#001f26] px-6 py-10 md:w-5/12 md:justify-between md:p-10 lg:w-1/2 lg:p-20">
         <div className="absolute top-[-10%] left-[-10%] h-96 w-96 rounded-full bg-[#4cd7f6] opacity-20 blur-[120px]" />
         <div className="absolute right-[-10%] bottom-[-10%] h-[500px] w-[500px] rounded-full bg-[#aa4900] opacity-20 blur-[150px]" />
@@ -75,7 +76,7 @@ export default async function LoginPage({
 
         <Link
           href="/"
-          className="relative z-10 flex items-center justify-center gap-3 md:justify-start"
+          className="relative z-10 mt-16 flex items-center justify-center gap-3 md:mt-10 md:justify-start"
         >
           <PlayCircle className="h-10 w-10 fill-current text-[#d2bbff]" />
           <h1 className="font-display bg-gradient-to-r from-[#d2bbff] to-[#4cd7f6] bg-clip-text text-3xl font-bold tracking-tighter text-transparent">

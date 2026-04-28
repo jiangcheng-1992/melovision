@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Mail, Music4, User } from "lucide-react";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { PasswordInput } from "@/components/auth/password-input";
+import { PublicTopbar } from "@/components/site/public-topbar";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default async function RegisterPage({
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#14121f] text-[#e5e0f3] antialiased selection:bg-[#7c3aed] selection:text-[#ede0ff] md:flex md:overflow-auto">
+      <PublicTopbar variant="register" sourcePage="register" />
       <section className="relative flex h-40 w-full shrink-0 flex-col justify-center overflow-hidden bg-[#0e0c19] p-6 md:h-auto md:w-5/12 md:justify-between md:p-12 lg:w-1/2">
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-[#7c3aed]/20 via-[#0e0c19] to-[#03b5d3]/10" />
@@ -65,7 +67,7 @@ export default async function RegisterPage({
 
         <Link
           href="/"
-          className="relative z-10 flex items-center justify-center gap-3 md:justify-start"
+          className="relative z-10 mt-16 flex items-center justify-center gap-3 md:mt-10 md:justify-start"
         >
           <Music4 className="h-9 w-9 text-[#d2bbff]" />
           <span className="font-display bg-gradient-to-r from-[#7c3aed] to-[#4cd7f6] bg-clip-text text-3xl font-bold tracking-tighter text-transparent">

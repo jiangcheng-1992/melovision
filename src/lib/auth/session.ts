@@ -8,6 +8,12 @@ export const SESSION_COOKIE_NAME = "melovision_session";
 
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
 
+function logSessionError(scope: string, error: unknown) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(`[auth/session] ${scope}`, error);
+  }
+}
+
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
@@ -48,28 +54,33 @@ export function clearSessionCookie(response: NextResponse) {
 }
 
 export async function getCurrentSession() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-  if (!token) {
+    if (!token) {
+      return null;
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!session) {
+      return null;
+    }
+
+    if (session.expiresAt <= new Date()) {
+      await prisma.session.delete({ where: { token } }).catch(() => undefined);
+      return null;
+    }
+
+    return session;
+  } catch (error) {
+    logSessionError("getCurrentSession", error);
     return null;
   }
-
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: true },
-  });
-
-  if (!session) {
-    return null;
-  }
-
-  if (session.expiresAt <= new Date()) {
-    await prisma.session.delete({ where: { token } }).catch(() => undefined);
-    return null;
-  }
-
-  return session;
 }
 
 export async function getCurrentUser() {
@@ -88,5 +99,9 @@ export async function requireCurrentUser() {
 }
 
 export async function clearSessionByToken(token: string) {
-  await prisma.session.delete({ where: { token } }).catch(() => undefined);
+  try {
+    await prisma.session.delete({ where: { token } }).catch(() => undefined);
+  } catch (error) {
+    logSessionError("clearSessionByToken", error);
+  }
 }

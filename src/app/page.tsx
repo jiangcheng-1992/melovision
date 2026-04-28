@@ -13,7 +13,7 @@ import {
   Subtitles,
   Wand2,
 } from "lucide-react";
-import { MarketingTopbar } from "@/components/site/marketing-topbar";
+import { PublicTopbar } from "@/components/site/public-topbar";
 
 const socialProof = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDTezTOTy401VganBMpZMYokf3xTgNRnnJuYyr_VEKyUQBw_hNVzDExoaP78Edxau0oGBBOJlJR--EFXw4fnQ4gEj_25qyiuCieiz9MWd_lMZhTn56dMq5p4T579-J480KnMLfHw4RqH76JxKp3e1nd_WdWnX0X7WzdBQgi6PBs49hiCrTytBREIm5Z83CfnFXdYdJvXUnMMSksajhvtYuEeH_ElO8dwSQ8FpUop_RnY2UcTgRTIhh7UoUwDdioWQgEAcdcyQkG_Q",
@@ -187,9 +187,9 @@ const footerColumns = [
   {
     title: "公司",
     items: [
-      { label: "隐私政策", href: "/interfaces/register" },
-      { label: "服务条款", href: "/interfaces/register" },
-      { label: "Cookie 政策", href: "/interfaces/register" },
+      { label: "隐私政策", href: "/interfaces/privacy" },
+      { label: "服务条款", href: "/interfaces/terms" },
+      { label: "Cookie 政策", href: "/interfaces/privacy" },
       { label: "联系支持", href: "/interfaces/login" },
     ],
   },
@@ -202,31 +202,7 @@ export default function Home() {
       <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.03] [background-image:radial-gradient(#ffffff_0.6px,transparent_0.6px)] [background-size:12px_12px]" />
 
       <div className="relative z-10">
-        <MarketingTopbar
-          sourcePage="home"
-          navItems={[
-            { href: "/", label: "产品展示", active: true, sourcePage: "home" },
-            { href: "/interfaces/explore", label: "作品广场", sourcePage: "home" },
-            { href: "/interfaces/pricing", label: "价格方案", sourcePage: "home" },
-            { href: "/interfaces/create", label: "工作台", sourcePage: "home" },
-          ]}
-          rightSlot={
-            <>
-              <Link
-                href="/interfaces/login"
-                className="hidden text-sm text-[#a9a2ba] transition-colors hover:text-[#f5f3ff] sm:block"
-              >
-                登录
-              </Link>
-              <Link
-                href="/interfaces/register"
-                className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#03b5d3] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(124,58,237,0.24)] transition hover:scale-[1.02]"
-              >
-                开始使用
-              </Link>
-            </>
-          }
-        />
+        <PublicTopbar activeNav="home" sourcePage="home" />
 
         <main>
           <section className="relative flex min-h-[760px] items-center overflow-hidden px-6 pt-24 pb-20">

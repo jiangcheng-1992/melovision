@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Mail } from "lucide-react";
+import { PublicTopbar } from "@/components/site/public-topbar";
 
 export const metadata: Metadata = {
   title: "找回密码 - MeloVision",
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#14121f] px-6 py-12 text-[#e5e0f3]">
+    <div className="flex min-h-screen items-center justify-center bg-[#14121f] px-6 py-12 pt-24 text-[#e5e0f3]">
+      <PublicTopbar variant="login" sourcePage="forgot-password" />
       <div className="w-full max-w-md rounded-2xl border border-[#4a4455]/20 bg-[#0e0c19]/80 p-8 shadow-[0_24px_64px_-12px_rgba(229,224,243,0.04)] backdrop-blur-[24px]">
         <Link
           href="/interfaces/login"

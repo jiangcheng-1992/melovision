@@ -4,6 +4,10 @@ import Link, { type LinkProps } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
+const navigationDebugEnabled =
+  process.env.NODE_ENV !== "production" ||
+  process.env.NEXT_PUBLIC_ENABLE_NAV_DEBUG === "1";
+
 type DebugLinkProps = Omit<React.ComponentProps<typeof Link>, "href"> &
   LinkProps & {
     label: string;
@@ -27,6 +31,11 @@ export function DebugLink({
     <Link
       href={href}
       onClick={(event) => {
+        if (!navigationDebugEnabled) {
+          onClick?.(event);
+          return;
+        }
+
         const timestamp = new Date();
         const hrefValue = typeof href === "string" ? href : href.toString();
         const currentQuery =
@@ -76,6 +85,10 @@ export function PageNavigationDebug({
   const previousUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!navigationDebugEnabled) {
+      return;
+    }
+
     const query = typeof window !== "undefined" ? window.location.search : "";
     const currentUrl = `${pathname}${query}`;
     const timestamp = new Date();
@@ -104,6 +117,10 @@ export function PageNavigationDebug({
   }, [pathname, pageName]);
 
   useEffect(() => {
+    if (!navigationDebugEnabled) {
+      return;
+    }
+
     const query = typeof window !== "undefined" ? window.location.search : "";
     const currentUrl = `${pathname}${query}`;
 
