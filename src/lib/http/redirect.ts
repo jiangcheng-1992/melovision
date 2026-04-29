@@ -1,6 +1,9 @@
+import { sanitizeEnvValue } from "@/lib/env";
+
 export function getRequestOrigin(request: Request) {
   const explicitBaseUrl =
-    process.env.NEXTAUTH_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
+    sanitizeEnvValue(process.env.NEXTAUTH_URL) ||
+    sanitizeEnvValue(process.env.NEXT_PUBLIC_APP_URL);
 
   if (explicitBaseUrl) {
     return explicitBaseUrl.replace(/\/+$/, "");
