@@ -66,7 +66,11 @@ export async function POST(request: Request) {
       },
     });
 
-    await ensureBillingProfile(user.id);
+    try {
+      await ensureBillingProfile(user.id);
+    } catch (error) {
+      console.error("[auth/register] billing bootstrap failed", error);
+    }
 
     const session = await createSession(user.id);
     const response = NextResponse.redirect(

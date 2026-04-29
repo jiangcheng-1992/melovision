@@ -6,6 +6,9 @@ import {
   type BillingCycle,
 } from "@/lib/billing/catalog";
 
+const FALLBACK_PLAN_CODE = "free";
+const FALLBACK_CREDIT_BALANCE = getPlanByCode(FALLBACK_PLAN_CODE).monthlyCredits;
+
 function addMonths(base: Date, months: number) {
   const next = new Date(base);
   next.setMonth(next.getMonth() + months);
@@ -14,6 +17,31 @@ function addMonths(base: Date, months: number) {
 
 function buildReferenceCode(prefix: string) {
   return `${prefix}_${Date.now()}`;
+}
+
+function isBillingInfraError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    message.includes("no such table") ||
+    message.includes("UserBillingProfile") ||
+    message.includes("CreditTransaction")
+  );
+}
+
+function buildFallbackBillingProfile(userId: string) {
+  const now = new Date();
+  return {
+    id: `fallback_${userId}`,
+    userId,
+    planCode: FALLBACK_PLAN_CODE,
+    billingCycle: "yearly",
+    creditBalance: FALLBACK_CREDIT_BALANCE,
+    periodStartedAt: now,
+    periodEndsAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function ensureBillingProfile(userId: string) {
@@ -55,44 +83,82 @@ export async function ensureBillingProfile(userId: string) {
 }
 
 export async function getBillingOverviewForUser(userId: string) {
-  const profile = await ensureBillingProfile(userId);
-  const plan = getPlanByCode(profile.planCode);
-  const recentTransactions = await prisma.creditTransaction.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 8,
-  });
+  try {
+    const profile = await ensureBillingProfile(userId);
+    const plan = getPlanByCode(profile.planCode);
+    const recentTransactions = await prisma.creditTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    });
 
-  return {
-    summary: {
-      planCode: profile.planCode,
-      planName: plan.name,
-      billingCycle: profile.billingCycle as BillingCycle,
-      creditBalance: profile.creditBalance,
-      monthlyCredits: plan.monthlyCredits,
-      periodStartedAt: profile.periodStartedAt,
-      periodEndsAt: profile.periodEndsAt,
-    },
-    plans: PLAN_CATALOG.map((item) => ({
-      ...item,
-      isCurrent: item.code === profile.planCode,
-    })),
-    creditCosts: CREDIT_COST_CATALOG,
-    recentTransactions: recentTransactions.map((item) => ({
-      id: item.id,
-      type: item.type,
-      amount: item.amount,
-      balanceAfter: item.balanceAfter,
-      description: item.description,
-      referenceCode: item.referenceCode,
-      createdAt: item.createdAt,
-    })),
-  };
+    return {
+      summary: {
+        planCode: profile.planCode,
+        planName: plan.name,
+        billingCycle: profile.billingCycle as BillingCycle,
+        creditBalance: profile.creditBalance,
+        monthlyCredits: plan.monthlyCredits,
+        periodStartedAt: profile.periodStartedAt,
+        periodEndsAt: profile.periodEndsAt,
+      },
+      plans: PLAN_CATALOG.map((item) => ({
+        ...item,
+        isCurrent: item.code === profile.planCode,
+      })),
+      creditCosts: CREDIT_COST_CATALOG,
+      recentTransactions: recentTransactions.map((item) => ({
+        id: item.id,
+        type: item.type,
+        amount: item.amount,
+        balanceAfter: item.balanceAfter,
+        description: item.description,
+        referenceCode: item.referenceCode,
+        createdAt: item.createdAt,
+      })),
+    };
+  } catch (error) {
+    if (!isBillingInfraError(error)) {
+      throw error;
+    }
+
+    const fallbackProfile = buildFallbackBillingProfile(userId);
+    const fallbackPlan = getPlanByCode(fallbackProfile.planCode);
+
+    console.error("[billing] fallback billing overview", error);
+
+    return {
+      summary: {
+        planCode: fallbackProfile.planCode,
+        planName: fallbackPlan.name,
+        billingCycle: fallbackProfile.billingCycle as BillingCycle,
+        creditBalance: fallbackProfile.creditBalance,
+        monthlyCredits: fallbackPlan.monthlyCredits,
+        periodStartedAt: fallbackProfile.periodStartedAt,
+        periodEndsAt: fallbackProfile.periodEndsAt,
+      },
+      plans: PLAN_CATALOG.map((item) => ({
+        ...item,
+        isCurrent: item.code === fallbackProfile.planCode,
+      })),
+      creditCosts: CREDIT_COST_CATALOG,
+      recentTransactions: [],
+    };
+  }
 }
 
 export async function getCreditBadgeLabelForUser(userId: string) {
-  const profile = await ensureBillingProfile(userId);
-  return `${profile.creditBalance} 积分`;
+  try {
+    const profile = await ensureBillingProfile(userId);
+    return `${profile.creditBalance} 积分`;
+  } catch (error) {
+    if (!isBillingInfraError(error)) {
+      throw error;
+    }
+
+    console.error("[billing] fallback credit badge", error);
+    return `${FALLBACK_CREDIT_BALANCE} 积分`;
+  }
 }
 
 export async function changeSubscriptionForUser(
