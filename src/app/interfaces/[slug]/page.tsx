@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { stitchPageMap, stitchPages } from "@/lib/stitch-pages";
+import { stitchPageMap, stitchPreviewPages } from "@/lib/stitch-pages";
 
 type PageProps = {
   params: Promise<{
@@ -11,7 +11,7 @@ type PageProps = {
 };
 
 export async function generateStaticParams() {
-  return stitchPages.map((page) => ({
+  return stitchPreviewPages.map((page) => ({
     slug: page.slug,
   }));
 }

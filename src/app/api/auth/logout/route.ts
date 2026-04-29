@@ -4,6 +4,7 @@ import {
   clearSessionByToken,
   clearSessionCookie,
 } from "@/lib/auth/session";
+import { buildRedirectUrl } from "@/lib/http/redirect";
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.redirect(
-    new URL("/interfaces/login?message=logged-out", request.url),
+    buildRedirectUrl(request, "/interfaces/login?message=logged-out"),
   );
   clearSessionCookie(response);
 

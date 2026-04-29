@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { stitchPages } from "@/lib/stitch-pages";
+import { stitchPreviewPages } from "@/lib/stitch-pages";
 
 export default function InterfacesPage() {
   return (
@@ -19,7 +19,7 @@ export default function InterfacesPage() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {stitchPages.map((page) => (
+          {stitchPreviewPages.map((page) => (
             <Link
               key={page.slug}
               href={`/interfaces/${page.slug}`}

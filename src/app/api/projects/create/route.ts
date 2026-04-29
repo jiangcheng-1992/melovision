@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
+import { buildRedirectUrl } from "@/lib/http/redirect";
 import { saveProjectDraftWithMusic } from "@/lib/mv/workflow";
 
 const createProjectSchema = z.object({
@@ -20,9 +21,9 @@ const createProjectSchema = z.object({
 
 function redirectWithError(request: Request, error: string, projectId?: string) {
   return NextResponse.redirect(
-    new URL(
+    buildRedirectUrl(
+      request,
       `/interfaces/create?error=${encodeURIComponent(error)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}`,
-      request.url,
     ),
   );
 }
@@ -32,9 +33,9 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.redirect(
-      new URL(
+      buildRedirectUrl(
+        request,
         `/interfaces/login?error=${encodeURIComponent("请先登录后继续")}`,
-        request.url,
       ),
     );
   }
@@ -74,7 +75,10 @@ export async function POST(request: Request) {
     projectId,
   );
 
-  const redirectUrl = new URL(`/interfaces/music?projectId=${result.projectId}&created=1`, request.url);
+  const redirectUrl = buildRedirectUrl(
+    request,
+    `/interfaces/music?projectId=${result.projectId}&created=1`,
+  );
   if (result.warningCode) {
     redirectUrl.searchParams.set("warning", result.warningCode);
   }

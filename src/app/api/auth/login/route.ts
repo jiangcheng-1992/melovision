@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { buildRedirectUrl } from "@/lib/http/redirect";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
@@ -11,7 +12,10 @@ const loginSchema = z.object({
 
 function redirectWithError(request: Request, error: string) {
   return NextResponse.redirect(
-    new URL(`/interfaces/login?error=${encodeURIComponent(error)}`, request.url),
+    buildRedirectUrl(
+      request,
+      `/interfaces/login?error=${encodeURIComponent(error)}`,
+    ),
   );
 }
 
@@ -45,7 +49,7 @@ export async function POST(request: Request) {
 
     const session = await createSession(user.id);
     const response = NextResponse.redirect(
-      new URL("/interfaces/projects?auth=logged-in", request.url),
+      buildRedirectUrl(request, "/interfaces/projects?auth=logged-in"),
     );
 
     setSessionCookie(response, session.token, session.expiresAt);

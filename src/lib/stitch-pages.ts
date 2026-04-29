@@ -93,6 +93,28 @@ export const stitchPages: StitchPage[] = [
   },
 ];
 
+// These pages have been rebuilt as native Next.js routes and must not be
+// prerendered again through the legacy stitch preview route in production.
+export const nativeInterfaceSlugs = new Set([
+  "register",
+  "projects",
+  "login",
+  "explore",
+  "pricing",
+  "create",
+  "music",
+  "workbench",
+  "export",
+  "generation",
+  "terms",
+  "privacy",
+  "forgot-password",
+]);
+
+export const stitchPreviewPages = stitchPages.filter(
+  (page) => !nativeInterfaceSlugs.has(page.slug),
+);
+
 export const stitchPageMap = new Map(
-  stitchPages.map((page) => [page.slug, page]),
+  stitchPreviewPages.map((page) => [page.slug, page]),
 );

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
 import { ensureBillingProfile } from "@/lib/billing/service";
+import { buildRedirectUrl } from "@/lib/http/redirect";
 import { prisma } from "@/lib/prisma";
 
 const registerSchema = z.object({
@@ -23,9 +24,9 @@ const registerSchema = z.object({
 
 function redirectWithError(request: Request, error: string) {
   return NextResponse.redirect(
-    new URL(
+    buildRedirectUrl(
+      request,
       `/interfaces/register?error=${encodeURIComponent(error)}`,
-      request.url,
     ),
   );
 }
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 
     const session = await createSession(user.id);
     const response = NextResponse.redirect(
-      new URL("/interfaces/projects?auth=registered", request.url),
+      buildRedirectUrl(request, "/interfaces/projects?auth=registered"),
     );
 
     setSessionCookie(response, session.token, session.expiresAt);

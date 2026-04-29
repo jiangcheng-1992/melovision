@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
+import { buildRedirectUrl } from "@/lib/http/redirect";
 import { selectMusicOption } from "@/lib/mv/workflow";
 
 const selectSchema = z.object({
@@ -15,9 +16,9 @@ export async function POST(
 
   if (!user) {
     return NextResponse.redirect(
-      new URL(
+      buildRedirectUrl(
+        request,
         `/interfaces/login?error=${encodeURIComponent("请先登录后继续")}`,
-        request.url,
       ),
     );
   }
@@ -30,9 +31,9 @@ export async function POST(
 
   if (!parsed.success) {
     return NextResponse.redirect(
-      new URL(
+      buildRedirectUrl(
+        request,
         `/interfaces/music?projectId=${projectId}&error=${encodeURIComponent("音乐选择无效")}`,
-        request.url,
       ),
     );
   }
@@ -40,6 +41,9 @@ export async function POST(
   await selectMusicOption(user.id, projectId, parsed.data.optionId);
 
   return NextResponse.redirect(
-    new URL(`/interfaces/music?projectId=${projectId}&message=music-selected`, request.url),
+    buildRedirectUrl(
+      request,
+      `/interfaces/music?projectId=${projectId}&message=music-selected`,
+    ),
   );
 }

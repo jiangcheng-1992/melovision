@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { buildRedirectUrl } from "@/lib/http/redirect";
 import { getLatestGenerationJobForUser } from "@/lib/mv/workflow";
 
 export async function POST(
@@ -10,9 +11,9 @@ export async function POST(
 
   if (!user) {
     return NextResponse.redirect(
-      new URL(
+      buildRedirectUrl(
+        request,
         `/interfaces/login?error=${encodeURIComponent("请先登录后继续")}`,
-        request.url,
       ),
     );
   }
@@ -22,11 +23,17 @@ export async function POST(
 
   if (snapshot?.job.status !== "completed") {
     return NextResponse.redirect(
-      new URL(`/interfaces/generation?projectId=${projectId}&message=generation-processing`, request.url),
+      buildRedirectUrl(
+        request,
+        `/interfaces/generation?projectId=${projectId}&message=generation-processing`,
+      ),
     );
   }
 
   return NextResponse.redirect(
-    new URL(`/interfaces/export?projectId=${projectId}&message=export-ready`, request.url),
+    buildRedirectUrl(
+      request,
+      `/interfaces/export?projectId=${projectId}&message=export-ready`,
+    ),
   );
 }
