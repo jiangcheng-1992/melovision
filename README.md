@@ -110,7 +110,7 @@ pnpm exec prisma studio
 ### 当前 Render 方案
 
 - Web Service
-- Node 20
+- Node 22
 - `pnpm` 构建
 - SQLite 文件放在持久盘
 - 启动时自动执行：
@@ -118,6 +118,8 @@ pnpm exec prisma studio
 ```bash
 pnpm exec prisma migrate deploy && pnpm start
 ```
+
+如果线上使用 SQLite 并依赖 `better-sqlite3`，建议 Render 保持 `NODE_VERSION=22`，避免 Node 24 下原生绑定缺失导致登录/注册等所有数据库请求失败。
 
 ## 生产环境注意事项
 

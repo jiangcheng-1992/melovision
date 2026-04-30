@@ -7,7 +7,7 @@ services:
     startCommand: npx pnpm@10.33.2 run render:start
     envVars:
       - key: NODE_VERSION
-        value: 24
+        value: 22
       - key: NODE_OPTIONS
         value: --max-old-space-size=1536
       - key: DATABASE_URL
