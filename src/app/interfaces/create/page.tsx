@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import { PageNavigationDebug } from "@/components/debug/navigation-debug";
 import { CreateForm } from "@/components/interfaces/create-form";
 import { AppTopbar } from "@/components/site/app-topbar";
@@ -78,41 +79,42 @@ export default async function CreatePage({
             debugLabel: "create-nav-projects",
             sourcePage: "create",
           },
-          {
-            href: "/interfaces/explore",
-            label: "素材库",
-            debugLabel: "create-nav-explore",
-            sourcePage: "create",
-          },
         ]}
       />
 
       <main className="mx-auto max-w-5xl px-4 pt-24 pb-12 sm:px-6 md:pt-28">
-        <div className="relative mb-8 flex items-center justify-between px-2 md:px-4">
-          <div className="absolute top-1/2 right-8 left-8 hidden h-0.5 -translate-y-1/2 bg-[#1c1a27] md:block" />
+        <div className="mb-8 flex items-start justify-between gap-2 px-2 md:gap-4 md:px-4">
           {steps.map((step, index) => (
-            <div
-              key={step.label}
-              className={`flex flex-col items-center gap-2 ${step.active ? "" : "opacity-50"}`}
-            >
-              {step.active ? (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7c3aed] text-xs font-bold text-white shadow-[0_0_20px_rgba(124,58,237,0.4)] md:h-10 md:w-10 md:text-sm">
-                  {step.number}
-                </div>
-              ) : (
-                <>
-                  <div className="mt-3 h-2 w-2 rounded-full bg-[#2b2836] md:hidden" />
-                  <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#2b2836] text-sm text-[#e5e0f3] md:flex">
+            <Fragment key={step.label}>
+              <div
+                className={`flex shrink-0 flex-col items-center gap-2 md:min-w-16 ${
+                  step.active ? "" : "opacity-50"
+                }`}
+              >
+                {step.active ? (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7c3aed] text-xs font-bold text-white shadow-[0_0_20px_rgba(124,58,237,0.4)] md:h-10 md:w-10 md:text-sm">
                     {step.number}
                   </div>
-                </>
-              )}
-              <span
-                className={`text-xs md:text-sm ${step.active ? "font-medium text-[#d2bbff]" : "hidden text-[#ccc3d8] md:block"}`}
-              >
-                {step.label}
-              </span>
-            </div>
+                ) : (
+                  <>
+                    <div className="mt-3 h-2 w-2 rounded-full bg-[#2b2836] md:hidden" />
+                    <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#2b2836] text-sm text-[#e5e0f3] md:flex">
+                      {step.number}
+                    </div>
+                  </>
+                )}
+                <span
+                  className={`text-xs md:text-sm ${
+                    step.active ? "font-medium text-[#d2bbff]" : "hidden text-[#ccc3d8] md:block"
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+              {index < steps.length - 1 ? (
+                <div className="mt-4 hidden h-px flex-1 bg-[#1c1a27] md:block" />
+              ) : null}
+            </Fragment>
           ))}
         </div>
 

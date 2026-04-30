@@ -65,7 +65,11 @@ export function CreateForm({
 
   const promptCount = conceptPrompt.length;
   const promptCountTone =
-    promptCount > 500 ? "text-[#f87171]" : promptCount > 420 ? "text-[#fbbf24]" : "text-[#958da1]";
+    promptCount > 2000
+      ? "text-[#f87171]"
+      : promptCount > 1700
+        ? "text-[#fbbf24]"
+        : "text-[#958da1]";
 
   const estimatedCredits = useMemo(() => {
     let total = 25;
@@ -130,12 +134,12 @@ export function CreateForm({
                   <label className="block text-sm font-medium text-[#ccc3d8]">
                     描述你的 MV 创意
                   </label>
-                  <span className={`text-xs ${promptCountTone}`}>{promptCount} / 500</span>
+                  <span className={`text-xs ${promptCountTone}`}>{promptCount} / 2000</span>
                 </div>
                 <textarea
                   name="conceptPrompt"
                   value={conceptPrompt}
-                  onChange={(event) => setConceptPrompt(event.target.value.slice(0, 500))}
+                  onChange={(event) => setConceptPrompt(event.target.value.slice(0, 2000))}
                   className="min-h-[120px] w-full resize-none rounded-[12px] border border-[#4a4455]/30 bg-[#0e0c19] px-4 py-3 font-body text-[#e5e0f3] transition-all placeholder:text-[#958da1] focus:border-[#d2bbff]/50 focus:ring-1 focus:ring-[#d2bbff]/50 focus:outline-none md:rounded-[16px]"
                   placeholder="描述你想要的氛围、故事和感觉..."
                   rows={6}

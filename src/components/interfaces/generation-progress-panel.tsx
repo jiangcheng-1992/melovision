@@ -300,7 +300,6 @@ export function GenerationProgressPanel({
         navItems={[
           { href: "/interfaces/create", label: "工作台", sourcePage: "generation" },
           { href: "/interfaces/projects", label: "项目", sourcePage: "generation" },
-          { href: "/interfaces/explore", label: "素材库", sourcePage: "generation" },
         ]}
       />
 

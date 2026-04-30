@@ -7,7 +7,7 @@ import { saveProjectDraftWithMusic } from "@/lib/mv/workflow";
 const createProjectSchema = z.object({
   projectId: z.string().trim().optional(),
   title: z.string().trim().min(1, "请先填写 MV 标题").max(80),
-  conceptPrompt: z.string().trim().min(10, "请至少填写 10 个字的创意描述").max(1000),
+  conceptPrompt: z.string().trim().min(10, "请至少填写 10 个字的创意描述").max(2000),
   customLyrics: z.string().trim().max(2000).optional(),
   musicGenerationMode: z.enum(["song", "instrumental"]).optional(),
   visualStyle: z.string().trim().min(1, "请选择视觉风格"),

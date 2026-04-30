@@ -1,4 +1,5 @@
 import "server-only";
+import { sanitizeEnvValue } from "@/lib/env";
 
 const SUNO_DEFAULT_BASE = "https://api.sunoapi.org/api/v1";
 const SUNO_MODEL = "V4_5ALL";
@@ -88,20 +89,34 @@ function logSuno(event: string, payload?: Record<string, unknown>) {
 }
 
 function getSunoBaseUrl() {
-  return (process.env.SUNO_API_BASE || SUNO_DEFAULT_BASE).replace(/\/$/, "");
+  const explicitBase = sanitizeEnvValue(process.env.SUNO_API_BASE);
+  const base = explicitBase || SUNO_DEFAULT_BASE;
+
+  try {
+    const normalized = new URL(base);
+    const pathname = normalized.pathname.replace(/\/+$/, "");
+
+    if (!pathname || pathname === "/") {
+      normalized.pathname = "/api/v1";
+    }
+
+    return normalized.toString().replace(/\/$/, "");
+  } catch {
+    return base.replace(/\/$/, "");
+  }
 }
 
 function getSunoApiKey() {
-  return process.env.SUNO_API_KEY?.trim() || "";
+  return sanitizeEnvValue(process.env.SUNO_API_KEY) || "";
 }
 
 function getSunoCallbackUrl() {
-  const explicitUrl = process.env.SUNO_CALLBACK_URL?.trim();
+  const explicitUrl = sanitizeEnvValue(process.env.SUNO_CALLBACK_URL);
   if (explicitUrl) {
     return explicitUrl;
   }
 
-  const appUrl = process.env.NEXTAUTH_URL?.trim() || "http://localhost:3000";
+  const appUrl = sanitizeEnvValue(process.env.NEXTAUTH_URL) || "http://localhost:3000";
   return `${appUrl.replace(/\/$/, "")}/api/webhooks/suno`;
 }
 

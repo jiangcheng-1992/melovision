@@ -510,12 +510,6 @@ export function WorkbenchStudio({
             debugLabel: "workbench-nav-projects",
             sourcePage: "workbench",
           },
-          {
-            href: "/interfaces/explore",
-            label: "素材库",
-            debugLabel: "workbench-nav-explore",
-            sourcePage: "workbench",
-          },
         ]}
         rightSlot={
           <div className="relative hidden items-center gap-3 md:flex">

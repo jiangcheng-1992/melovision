@@ -196,12 +196,6 @@ export default async function MusicPage({
             debugLabel: "music-nav-projects",
             sourcePage: "music",
           },
-          {
-            href: "/interfaces/explore",
-            label: "素材库",
-            debugLabel: "music-nav-explore",
-            sourcePage: "music",
-          },
         ]}
       />
 

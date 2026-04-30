@@ -43,7 +43,6 @@ export default async function ExportPage({
           navItems={[
             { href: "/interfaces/create", label: "工作台", sourcePage: "export" },
             { href: "/interfaces/projects", label: "项目", sourcePage: "export" },
-            { href: "/interfaces/explore", label: "素材库", sourcePage: "export" },
           ]}
           className="sticky"
         />
@@ -74,7 +73,6 @@ export default async function ExportPage({
           navItems={[
             { href: "/interfaces/create", label: "工作台", sourcePage: "export" },
             { href: "/interfaces/projects", label: "项目", sourcePage: "export" },
-            { href: "/interfaces/explore", label: "素材库", sourcePage: "export" },
           ]}
           className="sticky"
         />
@@ -111,7 +109,6 @@ export default async function ExportPage({
         navItems={[
           { href: "/interfaces/create", label: "工作台", sourcePage: "export" },
           { href: "/interfaces/projects", label: "项目", sourcePage: "export" },
-          { href: "/interfaces/explore", label: "素材库", sourcePage: "export" },
         ]}
         className="sticky"
       />

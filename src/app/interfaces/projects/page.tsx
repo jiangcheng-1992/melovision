@@ -55,12 +55,6 @@ export default async function ProjectsPage({
             debugLabel: "projects-nav-projects",
             sourcePage: "projects",
           },
-          {
-            href: "/interfaces/explore",
-            label: "素材库",
-            debugLabel: "projects-nav-explore",
-            sourcePage: "projects",
-          },
         ]}
         rightSlot={
           <ProjectsToolbarActions displayName={currentUser.displayName} />
