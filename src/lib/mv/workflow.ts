@@ -1,3 +1,13 @@
+import type { ZodTypeAny } from "zod";
+
+import { generateStoryboard } from "@/storyboard";
+import type {
+  CharacterAnchor,
+  GenerateStoryboardInput,
+  StoryboardOutput,
+  TimedLyricLine,
+  WorldAnchor,
+} from "@/storyboard";
 import { prisma } from "@/lib/prisma";
 
 const MOCK_ARTWORKS = [
@@ -505,63 +515,256 @@ async function buildMusicOptionsForProject(input: {
   };
 }
 
-function buildStoryboardScenes(project: {
+type StoryboardSceneDraft = {
+  sortOrder: number;
+  startSec: number;
+  endSec: number;
+  lyricLine: string;
+  continuityLine: string | null;
+  prompt: string;
+  previewImageUrl: string | null;
+  status: string;
+};
+
+async function buildStoryboardScenes(project: {
   title: string;
   conceptPrompt: string;
   visualStyle: string;
+  musicStyle: string;
+  aspectRatio?: string | null;
   selectedMusic?: {
     durationSec: number;
-    lyricSnippet: string;
+    lyricSnippet?: string | null;
     lyrics?: string | null;
     genre: string;
   } | null;
 }) {
   const durationSec = project.selectedMusic?.durationSec ?? 192;
-  const lyricBase =
-    project.selectedMusic?.lyrics ||
-    project.selectedMusic?.lyricSnippet ||
-    project.conceptPrompt;
-  const lyricParts = lyricBase
-    .split(/\r?\n|[，。,.!?！？]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const maxSegmentSec = 10;
-  const sceneCount = Math.max(
-    1,
-    Math.min(18, Math.max(lyricParts.length || 1, Math.ceil(durationSec / maxSegmentSec))),
+  const lyrics = buildTimedLyricsForStoryboard(
+    project.selectedMusic?.lyrics || project.selectedMusic?.lyricSnippet || project.conceptPrompt,
+    durationSec,
   );
-  const baseSegment = Math.max(4, Math.min(maxSegmentSec, Math.ceil(durationSec / sceneCount)));
 
-  return Array.from({ length: sceneCount }).map((_, index) => {
-    const startSec = Math.min(durationSec, index * baseSegment);
-    const endSec =
-      index === sceneCount - 1
-        ? durationSec
-        : Math.min(durationSec, startSec + maxSegmentSec);
-    const lyricLine =
-      lyricParts[index % Math.max(1, lyricParts.length)] ||
-      `${project.title} 第 ${index + 1} 段画面`;
+  const fallback = buildFallbackStoryboardScenes(project, lyrics, durationSec);
+
+  try {
+    const storyboard = await generateStoryboard({
+      project: {
+        title: project.title,
+        concept: project.conceptPrompt,
+        visualStyle: project.visualStyle,
+        musicStyle: project.musicStyle || project.selectedMusic?.genre,
+        language: "zh-CN",
+        aspectRatio: project.aspectRatio ?? "16:9",
+      },
+      lyrics,
+      characterAnchor: inferCharacterAnchor(project),
+      worldAnchor: inferWorldAnchor(project),
+      llm: createStoryboardLlmClient(),
+    });
+
+    if (storyboard.scenes.length === 0) {
+      return fallback;
+    }
+
+    return storyboard.scenes.map((scene, index) => {
+      const startSec = toSceneStartSecond(scene.segment.startSec);
+      const endSec = toSceneEndSecond(scene.segment.endSec, durationSec, startSec);
+
+      return {
+        sortOrder: index,
+        startSec,
+        endSec,
+        lyricLine: scene.segment.text,
+        continuityLine: scene.plan.continuity_with_prev ?? null,
+        prompt: scene.prompts.video_prompt,
+        previewImageUrl: null,
+        status: "ready",
+      };
+    });
+  } catch (error) {
+    console.warn("[storyboard] generate_fallback", {
+      title: project.title,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallback;
+  }
+}
+
+function buildFallbackStoryboardScenes(
+  project: {
+    title: string;
+    conceptPrompt: string;
+    visualStyle: string;
+  },
+  lyrics: TimedLyricLine[],
+  durationSec: number,
+): StoryboardSceneDraft[] {
+  const safeLyrics =
+    lyrics.length > 0 ? lyrics : buildTimedLyricsForStoryboard(project.conceptPrompt, durationSec);
+
+  return safeLyrics.map((line, index) => {
     const previousLyric =
-      index > 0
-        ? lyricParts[(index - 1) % Math.max(1, lyricParts.length)]
-        : `${project.title} 开场氛围建立`;
+      index > 0 ? safeLyrics[index - 1]?.text ?? `${project.title} 开场氛围建立` : `${project.title} 开场氛围建立`;
     const nextLyric =
-      index < lyricParts.length - 1
-        ? lyricParts[(index + 1) % Math.max(1, lyricParts.length)]
+      index < safeLyrics.length - 1
+        ? safeLyrics[index + 1]?.text ?? `${project.title} 情绪延续到下一段`
         : `${project.title} 情绪延续到下一段`;
-    const continuityLine = `承接上一段“${previousLyric}”，过渡到下一段“${nextLyric}”，保持人物、机位和光线连续。`;
+    const continuityLine =
+      index === 0
+        ? null
+        : `承接上一段“${previousLyric}”，过渡到下一段“${nextLyric}”，保持人物、机位和光线连续。`;
 
     return {
       sortOrder: index,
-      startSec,
-      endSec,
-      lyricLine,
+      startSec: toSceneStartSecond(line.startSec),
+      endSec: toSceneEndSecond(line.endSec, durationSec, toSceneStartSecond(line.startSec)),
+      lyricLine: line.text,
       continuityLine,
-      prompt: `${project.visualStyle} 风格的 MV 分镜 ${index + 1}，围绕“${project.title}”展开，画面关键词：${lyricLine}。${continuityLine} 单段时长控制在 ${Math.max(1, endSec - startSec)} 秒内，整体保持电影感、统一主角设定、镜头语言清晰。`,
-      previewImageUrl: MOCK_SCENE_IMAGES[index % MOCK_SCENE_IMAGES.length],
+      prompt: `${project.visualStyle} 风格的 MV 分镜 ${index + 1}，围绕“${project.title}”展开，画面关键词：${line.text}。${continuityLine ?? "建立主角与场景的核心氛围。"} 单段时长控制在 10 秒内，整体保持电影感、统一主角设定、镜头语言清晰。`,
+      previewImageUrl: null,
       status: "ready",
     };
   });
+}
+
+function buildTimedLyricsForStoryboard(rawLyrics: string, totalDurationSec: number): TimedLyricLine[] {
+  const parts = rawLyrics
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/[。！？!?]/))
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const safeParts = parts.length > 0 ? parts : ["为当前 MV 生成开场氛围与情绪推进镜头。"];
+  const totalWeight = safeParts.reduce((sum, part) => sum + Math.max(1, part.replace(/\s+/g, "").length), 0);
+  let cursor = 0;
+
+  return safeParts.map((text, index) => {
+    const rawDuration = (Math.max(8, totalDurationSec) * Math.max(1, text.replace(/\s+/g, "").length)) / totalWeight;
+    const remaining = Math.max(0.5, totalDurationSec - cursor);
+    const clampedDuration = Math.min(10, Math.max(2.5, rawDuration));
+    const durationSec =
+      index === safeParts.length - 1
+        ? remaining
+        : Math.min(remaining, clampedDuration);
+    const startSec = roundStoryboardSecond(cursor);
+    const endSec =
+      index === safeParts.length - 1
+        ? roundStoryboardSecond(Math.max(startSec + 0.5, totalDurationSec))
+        : roundStoryboardSecond(startSec + durationSec);
+    cursor = endSec;
+
+    return {
+      id: `lyric-${index + 1}`,
+      text,
+      startSec,
+      endSec,
+    };
+  });
+}
+
+function inferCharacterAnchor(project: {
+  title: string;
+  conceptPrompt: string;
+  visualStyle: string;
+}): CharacterAnchor {
+  return {
+    identity: `${project.title} 的核心主角`,
+    appearance: "保持统一年龄感、脸部特征、发型和体态，不突然变脸",
+    wardrobe: `延续 ${project.visualStyle} 语境下的核心服装与配饰`,
+    emotionalBaseline: "情绪随歌词推进，但主体内核保持连续",
+    nonNegotiables: [
+      "不要出现多余角色抢占主角",
+      "不要突然更换主角外观",
+      "不要让服装和场景设定无理由漂移",
+    ],
+  };
+}
+
+function inferWorldAnchor(project: {
+  conceptPrompt: string;
+  visualStyle: string;
+}): WorldAnchor {
+  return {
+    setting: `基于以下 MV 创意建立统一世界观：${project.conceptPrompt}`,
+    timeOfDay: "依据歌词推进自然变化，但无明确信号时保持连续",
+    lighting: `延续 ${project.visualStyle} 的统一光线语言`,
+    atmosphere: "跟随音乐与歌词情绪推进，不做无理由跳变",
+    continuityRules: [
+      "无换场信号时不突然换地点或人物",
+      "镜头应承接上一段的情绪余波和空间关系",
+      "封面图和视频 prompt 使用同一份分镜上下文",
+    ],
+  };
+}
+
+function createStoryboardLlmClient(): GenerateStoryboardInput["llm"] {
+  return {
+    async invoke<TSchema extends ZodTypeAny>(systemPrompt: string, userPrompt: string, schema: TSchema) {
+      try {
+        const { invokeJsonWithVolcengine } = await import("@/lib/mv/volcengine");
+        const result = await invokeJsonWithVolcengine({
+          systemPrompt,
+          userPrompt,
+        });
+
+        if (result) {
+          return schema.parse(result);
+        }
+      } catch (error) {
+        console.warn("[storyboard] llm_invoke_fallback", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      return schema.parse(buildFallbackPlanFromPrompt(userPrompt));
+    },
+  };
+}
+
+function buildFallbackPlanFromPrompt(userPrompt: string) {
+  const lyricText =
+    userPrompt.match(/- text:\s*(.+)/)?.[1]?.trim() || "当前歌词片段";
+  const durationSec = Number(userPrompt.match(/- durationSec:\s*([0-9.]+)/)?.[1] ?? 8);
+  const allowSceneBreak = userPrompt.includes("允许换场");
+  const continuityPrefix = userPrompt.match(/承接前缀：(.+)/)?.[1]?.trim();
+
+  return {
+    narrativePurpose: `围绕“${lyricText}”建立当前镜头的叙事推进，并服务整体 MV 情绪起伏。`,
+    emotionalSubtext: `表达“${lyricText}”背后的潜台词与情绪流动，而非字面翻译。`,
+    subject: "核心主角",
+    subjectState: "延续上一镜的情绪与动作惯性，保持视觉主体稳定。",
+    actionStart: `从“${lyricText}”对应的情绪起点进入动作。`,
+    actionEnd: `在 ${Math.max(1, Math.round(durationSec))} 秒内完成当前情绪段落的动作收束。`,
+    setting: allowSceneBreak ? "根据歌词信号允许切换后的新场景" : "延续上一镜的主场景关系",
+    timeOfDay: allowSceneBreak ? "按歌词叙事允许自然转场后的时间" : "延续上一镜时间氛围",
+    lighting: "保持统一光影与主体辨识度",
+    moodTone: "电影感、情绪连贯、主体明确",
+    shotType: "中近景到中景",
+    cameraMovement: "轻推、跟拍或平移，避免突兀跳动",
+    visualFocus: `${lyricText} 对应的主体神态、动作和空间关系`,
+    coverMoment: `定格“${lyricText}”中最能代表情绪推进的一瞬`,
+    continuitySummary: continuityPrefix || "承接上一镜的人物、情绪和空间关系，继续推动叙事。",
+    continuity_with_prev: continuityPrefix || "承接上一镜的主体状态与空间方向，平滑过渡到当前分镜。",
+    sceneChangeAllowed: allowSceneBreak,
+    transitionReason: allowSceneBreak ? "歌词中存在明确换场信号。" : undefined,
+    inheritedDimensions: allowSceneBreak
+      ? ["character_appearance", "wardrobe", "mood_tone"]
+      : ["character_appearance", "wardrobe", "setting", "lighting", "mood_tone"],
+  };
+}
+
+function roundStoryboardSecond(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
+function toSceneStartSecond(value: number) {
+  return Math.max(0, Math.floor(value));
+}
+
+function toSceneEndSecond(value: number, totalDurationSec: number, startSec = 0) {
+  const bounded = Math.min(Math.max(startSec + 1, Math.ceil(value)), Math.max(1, Math.ceil(totalDurationSec)));
+  return Math.min(startSec + 10, bounded);
 }
 
 function isMockScenePreviewImage(url?: string | null) {
@@ -583,6 +786,7 @@ async function ensureScenePreviewImage(project: {
 }, scene: {
   id: string;
   sortOrder: number;
+  lyricLine: string;
   prompt: string;
   previewImageUrl?: string | null;
   continuityLine?: string | null;
@@ -597,11 +801,7 @@ async function ensureScenePreviewImage(project: {
   }
 
   const enhancedPrompt = [
-    scene.prompt,
-    scene.continuityLine,
-    continuityReferenceImageUrl
-      ? "封面图需要承接上一段视频尾帧的角色造型、构图和镜头方向，同时明确呈现当前分镜的起始动作。"
-      : "封面图需要准确呈现当前分镜提示词，不要出现通用占位物体或无关主体。",
+    buildSceneCoverPrompt(project, scene, continuityReferenceImageUrl),
   ]
     .filter(Boolean)
     .join("\n");
@@ -643,6 +843,34 @@ async function ensureScenePreviewImage(project: {
 
     return fallbackPreviewUrl;
   }
+}
+
+function buildSceneCoverPrompt(
+  project: {
+    title: string;
+    visualStyle: string;
+  },
+  scene: {
+    sortOrder: number;
+    lyricLine: string;
+    prompt: string;
+    continuityLine?: string | null;
+  },
+  continuityReferenceImageUrl?: string | null,
+) {
+  return [
+    `为 MV《${project.title}》生成第 ${scene.sortOrder + 1} 段分镜封面图。`,
+    `整体风格：${project.visualStyle}`,
+    `当前歌词片段：${scene.lyricLine}`,
+    scene.continuityLine ? `承接上一镜：${scene.continuityLine}` : "首镜负责建立主体、空间和情绪基调。",
+    "任务目标：只定格这一镜最能代表叙事推进和情绪转折的一帧。",
+    "封面图 prompt 与视频 prompt 必须共享同一镜头上下文，但封面图更强调定格瞬间、角色表情、构图和起始动作。",
+    continuityReferenceImageUrl
+      ? "必须参考上一镜的真实尾帧或封面，保持主角外观、服装、空间方向和镜头朝向连续。"
+      : "如果没有上一镜，先建立统一主角、场景和光线，不要出现占位物体。",
+    "禁止文字水印、额外角色、肢体错位、无关道具、随机换景。",
+    `视频镜头上下文：${scene.prompt}`,
+  ].join("\n");
 }
 
 async function hydrateStoryboardScenePreviews(project: NonNullable<Awaited<ReturnType<typeof getProjectForUser>>>) {
@@ -1074,7 +1302,7 @@ export async function ensureStoryboardScenes(userId: string, projectId: string) 
     project.musicOptions.find((item) => item.isSelected) ??
     null;
 
-  const scenes = buildStoryboardScenes({
+  const scenes = await buildStoryboardScenes({
     ...project,
     selectedMusic,
   });
@@ -1086,7 +1314,7 @@ export async function ensureStoryboardScenes(userId: string, projectId: string) 
       scenes: {
         create: scenes,
       },
-      coverImageUrl: scenes[0]?.previewImageUrl,
+      coverImageUrl: scenes[0]?.previewImageUrl ?? null,
     },
   });
 
@@ -1222,9 +1450,9 @@ export async function updateStoryboardScene(
     data: {
       prompt: input.prompt ?? scene.prompt,
       lyricLine: input.lyricLine ?? scene.lyricLine,
-        continuityLine: input.lyricLine
-          ? `承接上一段镜头情绪，并自然过渡到围绕“${input.lyricLine}”的新镜头段落。`
-          : scene.continuityLine,
+      continuityLine: input.lyricLine
+        ? `承接上一段镜头情绪，并自然过渡到围绕“${input.lyricLine}”的新镜头段落。`
+        : scene.continuityLine,
     },
   });
 }
@@ -1286,6 +1514,7 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
   const project = await prisma.mvProject.findFirst({
     where: { id: projectId, userId },
     include: {
+      musicOptions: true,
       scenes: {
         orderBy: { sortOrder: "asc" },
       },
@@ -1301,22 +1530,44 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
     throw new Error("SCENE_NOT_FOUND");
   }
 
-  const nextPrompt = `${scene.prompt}\n已按当前音乐节奏重新优化镜头推进与画面调度。`;
+  const selectedMusic = getSelectedMusicOption(project);
+  const regeneratedScenes = await buildStoryboardScenes({
+    title: project.title,
+    conceptPrompt: project.conceptPrompt,
+    visualStyle: project.visualStyle,
+    musicStyle: project.musicStyle,
+    aspectRatio: "16:9",
+    selectedMusic,
+  });
+  const regeneratedScene = regeneratedScenes.find((item) => item.sortOrder === scene.sortOrder);
+  const nextPrompt =
+    regeneratedScene?.prompt ??
+    `${scene.prompt}\n已按当前音乐节奏重新优化镜头推进与画面调度。`;
+  const nextLyricLine = regeneratedScene?.lyricLine ?? scene.lyricLine;
+  const nextContinuityLine = regeneratedScene?.continuityLine ?? scene.continuityLine;
+  const previousScene = getContinuityReferenceScene(project.scenes, scene.sortOrder);
   let previewImageUrl =
-    scene.previewImageUrl ?? MOCK_SCENE_IMAGES[(scene.sortOrder + 1) % MOCK_SCENE_IMAGES.length];
+    previousScene?.previewImageUrl && isRemoteReferenceAssetUrl(previousScene.previewImageUrl)
+      ? previousScene.previewImageUrl
+      : null;
 
   try {
-    const { generateStoryboardImageWithVolcengine } = await import("@/lib/mv/volcengine");
-    const generatedImage = await generateStoryboardImageWithVolcengine({
-      prompt: nextPrompt,
-      visualStyle: project.visualStyle,
-      aspectRatio: "16:9",
-      seed: scene.sortOrder + 1,
-    });
-
-    if (generatedImage) {
-      previewImageUrl = generatedImage;
-    }
+    previewImageUrl = await ensureScenePreviewImage(
+      {
+        id: project.id,
+        title: project.title,
+        visualStyle: project.visualStyle,
+      },
+      {
+        id: scene.id,
+        sortOrder: scene.sortOrder,
+        lyricLine: nextLyricLine,
+        prompt: nextPrompt,
+        continuityLine: nextContinuityLine,
+        previewImageUrl: scene.previewImageUrl,
+      },
+      previousScene?.previewImageUrl ?? null,
+    );
   } catch (error) {
     console.warn("[volcengine] storyboard_regenerate_fallback", {
       projectId,
@@ -1329,6 +1580,10 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
     where: { id: sceneId },
     data: {
       prompt: nextPrompt,
+      lyricLine: nextLyricLine,
+      continuityLine: nextContinuityLine,
+      startSec: regeneratedScene?.startSec ?? scene.startSec,
+      endSec: regeneratedScene?.endSec ?? scene.endSec,
       previewImageUrl,
       status: "ready",
       resultVideoUrl: null,
@@ -1458,7 +1713,7 @@ export async function addStoryboardScene(userId: string, projectId: string) {
 
   const lastScene = project.scenes[project.scenes.length - 1];
   const startSec = lastScene ? lastScene.endSec : 0;
-  const endSec = startSec + 12;
+  const endSec = startSec + 10;
   const sortOrder = lastScene ? lastScene.sortOrder + 1 : 0;
 
   return prisma.storyboardScene.create({

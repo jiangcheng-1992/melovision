@@ -260,6 +260,14 @@ function extractResponseUrl(source: unknown, paths: string[][]) {
   return undefined;
 }
 
+function parseJsonResponseContent(content: string) {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  const candidate = fenced || trimmed;
+
+  return JSON.parse(candidate) as unknown;
+}
+
 async function volcengineFetch(path: string, init?: RequestInit) {
   const apiKey = getVolcengineApiKey();
   if (!apiKey) {
@@ -374,6 +382,60 @@ export async function optimizeStoryboardPromptWithVolcengine(input: {
   }
 
   return content;
+}
+
+export async function invokeJsonWithVolcengine(input: {
+  systemPrompt: string;
+  userPrompt: string;
+}) {
+  if (!isVolcengineEnabled()) {
+    return null;
+  }
+
+  const payload = {
+    model: getVolcengineChatModel(),
+    messages: [
+      {
+        role: "system",
+        content: `${input.systemPrompt}\n请仅输出单个合法 JSON 对象，不要输出 markdown，不要输出解释。`,
+      },
+      {
+        role: "user",
+        content: input.userPrompt,
+      },
+    ],
+  };
+
+  const startedAt = nowMs();
+  logVolcengine("chat_json_start", {
+    model: payload.model,
+  });
+
+  const response = await volcengineFetch("/chat/completions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const content = firstString(response?.choices?.[0]?.message?.content);
+  logVolcengine("chat_json_complete", {
+    model: payload.model,
+    totalMs: nowMs() - startedAt,
+    hasContent: Boolean(content),
+  });
+
+  if (!content) {
+    throw new Error("VOLCENGINE_CHAT_JSON_CONTENT_MISSING");
+  }
+
+  try {
+    return parseJsonResponseContent(content);
+  } catch (error) {
+    throw new Error(
+      `VOLCENGINE_CHAT_JSON_PARSE_FAILED:${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 export async function generateStoryboardImageWithVolcengine(
