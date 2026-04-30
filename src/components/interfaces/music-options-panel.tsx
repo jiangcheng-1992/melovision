@@ -46,6 +46,12 @@ function getAudioExportHref(projectId: string, optionId: string) {
   return `/api/projects/${projectId}/music-options/${optionId}/audio?download=1`;
 }
 
+function getAudioExportFileName(option: MusicOption) {
+  const extension = option.audioUrl?.toLowerCase().includes(".wav") ? "wav" : "mp3";
+  const title = option.title.trim() || "MeloVision Audio";
+  return `${title}.${extension}`;
+}
+
 function getLyricLines(option: MusicOption) {
   const source = option.lyrics?.trim() || option.lyricSnippet;
   return source
@@ -347,6 +353,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
                 <div className="flex w-full shrink-0 flex-col gap-3 md:w-auto">
                   <a
                     href={getAudioExportHref(projectId, option.id)}
+                    download={getAudioExportFileName(option)}
                     className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[#4cd7f6]/30 px-4 py-2 text-sm font-medium text-[#4cd7f6] transition-colors hover:bg-[#062230]"
                   >
                     <Download className="h-4 w-4" />

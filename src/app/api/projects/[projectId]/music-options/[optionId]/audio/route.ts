@@ -14,6 +14,51 @@ function sanitizeFileName(value: string) {
   );
 }
 
+function sanitizeUnicodeFileName(value: string) {
+  return (
+    value
+      .replace(/[\\/:*?"<>|\r\n]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 120) || "MeloVision Audio"
+  );
+}
+
+function buildContentDisposition(
+  title: string,
+  extension: string,
+  download: boolean,
+) {
+  const safeExtension = extension.replace(/^\./, "") || "mp3";
+  const asciiFallback = `${sanitizeFileName(title)}.${safeExtension}`;
+  const unicodeName = `${sanitizeUnicodeFileName(title)}.${safeExtension}`;
+  const encoded = encodeURIComponent(unicodeName);
+  const dispositionType = download ? "attachment" : "inline";
+
+  return `${dispositionType}; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
+
+function resolveAudioExtension(contentType: string | null, audioUrl: string) {
+  const normalized = (contentType || "").toLowerCase();
+  if (normalized.includes("wav")) return "wav";
+  if (normalized.includes("mpeg") || normalized.includes("mp3")) return "mp3";
+  if (normalized.includes("aac")) return "aac";
+  if (normalized.includes("ogg")) return "ogg";
+  if (normalized.includes("mp4") || normalized.includes("m4a")) return "m4a";
+
+  try {
+    const pathname = new URL(audioUrl).pathname.toLowerCase();
+    const matched = pathname.match(/\.([a-z0-9]{2,5})$/);
+    if (matched?.[1]) {
+      return matched[1];
+    }
+  } catch {
+    // ignore URL parse failure and use default extension below
+  }
+
+  return "mp3";
+}
+
 function buildMockAudioWav(seed: string, durationSec = 24) {
   const sampleRate = 22050;
   const channelCount = 1;
@@ -94,13 +139,13 @@ export async function GET(
 
   if (option.provider === "suno_mock" || option.audioUrl.includes("mock-suno.local")) {
     const wav = buildMockAudioWav(option.providerRef || option.id);
-    const fileName = `${sanitizeFileName(option.title || option.id)}.wav`;
     return new NextResponse(wav, {
       status: 200,
       headers: {
         "Content-Type": "audio/wav",
         "Cache-Control": "no-store",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${fileName}"`,
+        "Content-Length": `${wav.byteLength}`,
+        "Content-Disposition": buildContentDisposition(option.title || option.id, "wav", download),
       },
     });
   }
@@ -120,16 +165,25 @@ export async function GET(
       );
     }
 
-    const fallbackExtension =
-      upstream.headers.get("content-type")?.includes("wav") ? "wav" : "mp3";
-    const fileName = `${sanitizeFileName(option.title || option.id)}.${fallbackExtension}`;
+    const contentType = upstream.headers.get("content-type") || "audio/mpeg";
+    const extension = resolveAudioExtension(contentType, option.audioUrl);
+    const arrayBuffer = await upstream.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    return new NextResponse(upstream.body, {
+    if (buffer.byteLength === 0) {
+      return NextResponse.json(
+        { error: "AUDIO_FETCH_EMPTY" },
+        { status: 502 },
+      );
+    }
+
+    return new NextResponse(buffer, {
       status: 200,
       headers: {
-        "Content-Type": upstream.headers.get("content-type") || "audio/mpeg",
+        "Content-Type": contentType,
         "Cache-Control": "no-store",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${fileName}"`,
+        "Content-Length": `${buffer.byteLength}`,
+        "Content-Disposition": buildContentDisposition(option.title || option.id, extension, download),
       },
     });
   } catch (error) {
