@@ -119,7 +119,7 @@ pnpm exec prisma studio
 pnpm exec prisma migrate deploy && pnpm start
 ```
 
-如果线上使用 SQLite 并依赖 `better-sqlite3`，建议 Render 保持 `NODE_VERSION=22`，避免 Node 24 下原生绑定缺失导致登录/注册等所有数据库请求失败。
+当前生产环境使用 Prisma 7 的 SQLite driver adapter，因此仍依赖 `better-sqlite3` 原生绑定。仓库已通过 `pnpm.onlyBuiltDependencies` 显式允许 `better-sqlite3` 执行构建脚本，Render 保持 `NODE_VERSION=22` 并清理构建缓存后重新部署即可。
 
 ## 生产环境注意事项
 

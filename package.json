@@ -22,6 +22,11 @@
     "worker": "tsx workers/index.ts",
     "html2jsx": "node scripts/html2jsx.mjs"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
     "@google/generative-ai": "^0.24.1",
