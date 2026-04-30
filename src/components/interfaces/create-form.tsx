@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   Clapperboard,
   FilePenLine,
+  LoaderCircle,
   Music4,
   Palette,
   Settings2,
@@ -41,6 +42,8 @@ export function CreateForm({
   musicStyles,
   initialValues,
 }: CreateFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState(0);
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [selectedVisualStyle, setSelectedVisualStyle] = useState(
     initialValues?.visualStyle ?? visualStyles[0]?.name ?? "",
@@ -89,8 +92,42 @@ export function CreateForm({
     return total;
   }, [consistencyBoost, customLyrics, shotDensity, showAdvanced, showLyrics]);
 
+  useEffect(() => {
+    if (!isSubmitting) {
+      setSubmitProgress(0);
+      return;
+    }
+
+    setSubmitProgress(8);
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const elapsedMs = Date.now() - startedAt;
+      const next = Math.min(92, 8 + elapsedMs / 90);
+      setSubmitProgress(next);
+    }, 120);
+
+    return () => window.clearInterval(timer);
+  }, [isSubmitting]);
+
+  const submitStage = useMemo(() => {
+    if (submitProgress < 30) {
+      return "正在校验创意与风格设置...";
+    }
+    if (submitProgress < 65) {
+      return "正在保存项目草稿并生成音乐提示词...";
+    }
+    return "正在为你准备音乐候选，请稍候...";
+  }, [submitProgress]);
+
   return (
-    <form action="/api/projects/create" method="POST" className="w-full">
+    <form
+      action="/api/projects/create"
+      method="POST"
+      className="w-full"
+      onSubmit={() => {
+        setIsSubmitting(true);
+      }}
+    >
       <input type="hidden" name="projectId" value={initialValues?.projectId ?? ""} />
       <input type="hidden" name="aspectRatio" value={aspectRatio} />
       <input type="hidden" name="shotDensity" value={shotDensity} />
@@ -427,12 +464,45 @@ export function CreateForm({
         </div>
         <button
           type="submit"
-          className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#03b5d3] px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:scale-[1.02] md:w-auto md:px-8 md:text-base"
+          disabled={isSubmitting}
+          className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#03b5d3] px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-80 md:w-auto md:px-8 md:text-base"
         >
-          <Clapperboard className="h-4 w-4" />
-          开始生成音乐 →
+          {isSubmitting ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : (
+            <Clapperboard className="h-4 w-4" />
+          )}
+          {isSubmitting ? "正在生成音乐..." : "开始生成音乐 →"}
         </button>
       </div>
+
+      {isSubmitting ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0b0913]/72 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[24px] border border-[#4a4455]/30 bg-[#14121f]/95 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.5)]">
+            <div className="mb-4 flex items-center gap-3 text-[#e5e0f3]">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#201e2c]">
+                <LoaderCircle className="h-5 w-5 animate-spin text-[#4cd7f6]" />
+              </div>
+              <div>
+                <div className="text-base font-semibold">正在生成音乐候选</div>
+                <div className="text-sm text-[#958da1]">{submitStage}</div>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-full bg-[#201e2c]">
+              <div
+                className="h-2 rounded-full bg-gradient-to-r from-[#7c3aed] to-[#03b5d3] transition-[width] duration-200"
+                style={{ width: `${submitProgress}%` }}
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-xs text-[#958da1]">
+              <span>请保持当前页面，不要刷新</span>
+              <span>{Math.round(submitProgress)}%</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }

@@ -193,6 +193,57 @@ function firstString(...values: unknown[]) {
   return undefined;
 }
 
+function getValueAtPath(input: unknown, path: string[]) {
+  let current: unknown = input;
+
+  for (const segment of path) {
+    if (!current || typeof current !== "object" || !(segment in current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return current;
+}
+
+function extractUrlCandidate(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return firstString(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const candidate = extractUrlCandidate(item);
+      if (candidate) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }
+
+  if (value && typeof value === "object") {
+    return firstString(
+      (value as Record<string, unknown>).url,
+      (value as Record<string, unknown>).uri,
+      (value as Record<string, unknown>).src,
+      (value as Record<string, unknown>).href,
+    );
+  }
+
+  return undefined;
+}
+
+function extractResponseUrl(source: unknown, paths: string[][]) {
+  for (const path of paths) {
+    const candidate = extractUrlCandidate(getValueAtPath(source, path));
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 async function volcengineFetch(path: string, init?: RequestInit) {
   const apiKey = getVolcengineApiKey();
   if (!apiKey) {
@@ -425,13 +476,81 @@ export async function getVideoGenerationTaskWithVolcengine(taskId: string) {
   );
 
   const status = (firstString(response?.status) || "running") as VolcengineVideoTaskStatus["status"];
+  const videoUrl = extractResponseUrl(response, [
+    ["content", "video_url"],
+    ["content", "videoUrl"],
+    ["content", "video", "url"],
+    ["content", "video"],
+    ["data", "content", "video_url"],
+    ["data", "content", "videoUrl"],
+    ["data", "video_url"],
+    ["data", "videoUrl"],
+    ["data", "video", "url"],
+    ["data", "video"],
+    ["output", "video_url"],
+    ["output", "videoUrl"],
+    ["output", "video", "url"],
+    ["output", "video"],
+    ["result", "video_url"],
+    ["result", "videoUrl"],
+    ["result", "video", "url"],
+    ["result", "video"],
+    ["video_url"],
+    ["videoUrl"],
+    ["video", "url"],
+    ["video"],
+  ]);
+  const lastFrameUrl = extractResponseUrl(response, [
+    ["content", "last_frame_url"],
+    ["content", "lastFrameUrl"],
+    ["content", "last_frame", "url"],
+    ["content", "lastFrame", "url"],
+    ["content", "cover_url"],
+    ["content", "coverUrl"],
+    ["content", "poster_url"],
+    ["content", "posterUrl"],
+    ["content", "image_url"],
+    ["content", "imageUrl"],
+    ["content", "thumbnail_url"],
+    ["content", "thumbnailUrl"],
+    ["data", "content", "last_frame_url"],
+    ["data", "content", "lastFrameUrl"],
+    ["data", "last_frame_url"],
+    ["data", "lastFrameUrl"],
+    ["data", "cover_url"],
+    ["data", "coverUrl"],
+    ["data", "poster_url"],
+    ["data", "posterUrl"],
+    ["data", "image_url"],
+    ["data", "imageUrl"],
+    ["output", "last_frame_url"],
+    ["output", "lastFrameUrl"],
+    ["output", "cover_url"],
+    ["output", "coverUrl"],
+    ["output", "poster_url"],
+    ["output", "posterUrl"],
+    ["result", "last_frame_url"],
+    ["result", "lastFrameUrl"],
+    ["result", "cover_url"],
+    ["result", "coverUrl"],
+    ["last_frame_url"],
+    ["lastFrameUrl"],
+    ["cover_url"],
+    ["coverUrl"],
+    ["poster_url"],
+    ["posterUrl"],
+    ["image_url"],
+    ["imageUrl"],
+    ["thumbnail_url"],
+    ["thumbnailUrl"],
+  ]);
 
   return {
     provider: "volcengine" as const,
     taskId,
     status,
-    videoUrl: firstString(response?.content?.video_url),
-    lastFrameUrl: firstString(response?.content?.last_frame_url),
+    videoUrl,
+    lastFrameUrl,
     errorCode: firstString(response?.error?.code),
     errorMessage: firstString(response?.error?.message),
     raw: response,

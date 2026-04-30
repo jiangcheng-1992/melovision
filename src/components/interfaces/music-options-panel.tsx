@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Pause, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Download, Pause, Play, RefreshCw } from "lucide-react";
 
 type MusicOption = {
   id: string;
@@ -24,10 +24,26 @@ type MusicOptionsPanelProps = {
 const waveformHeights = [2, 4, 6, 3, 8, 5, 2, 6, 4, 3, 7];
 
 function formatTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return "0:00";
+  }
+
   const safe = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(safe / 60);
   const remain = `${safe % 60}`.padStart(2, "0");
   return `${minutes}:${remain}`;
+}
+
+function getDisplayDuration(rawDuration: number, fallbackDuration: number) {
+  if (Number.isFinite(rawDuration) && rawDuration > 0) {
+    return rawDuration;
+  }
+
+  return Math.max(1, fallbackDuration);
+}
+
+function getAudioExportHref(projectId: string, optionId: string) {
+  return `/api/projects/${projectId}/music-options/${optionId}/audio?download=1`;
 }
 
 function getLyricLines(option: MusicOption) {
@@ -68,7 +84,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       return -1;
     }
 
-    const total = Math.max(duration || activeOption?.durationSec || 0, 1);
+    const total = getDisplayDuration(duration, activeOption?.durationSec || 0);
     const ratio = Math.min(0.999, currentTime / total);
     return Math.min(activeLyrics.length - 1, Math.floor(ratio * activeLyrics.length));
   }, [activeLyrics, activeOption?.durationSec, currentTime, duration]);
@@ -82,20 +98,27 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       setCurrentTime(0);
     };
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const handleLoadedMetadata = () => setDuration(audio.duration || 0);
+    const syncDuration = () => {
+      const fallback = options.find((option) => option.id === activeOptionId)?.durationSec || 0;
+      setDuration(getDisplayDuration(audio.duration, fallback));
+    };
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("loadedmetadata", syncDuration);
+    audio.addEventListener("loadeddata", syncDuration);
+    audio.addEventListener("durationchange", syncDuration);
 
     return () => {
       audio.pause();
       audio.src = "";
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("loadedmetadata", syncDuration);
+      audio.removeEventListener("loadeddata", syncDuration);
+      audio.removeEventListener("durationchange", syncDuration);
       audioRef.current = null;
     };
-  }, []);
+  }, [activeOptionId, options]);
 
   useEffect(() => {
     activeLyricLineRef.current?.scrollIntoView({
@@ -132,7 +155,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       audio.src = `/api/projects/${projectId}/music-options/${option.id}/audio`;
       audio.currentTime = 0;
       setCurrentTime(0);
-      setDuration(option.durationSec);
+      setDuration(getDisplayDuration(0, option.durationSec));
       await audio.play();
       setPreviewingId(option.id);
     } catch {
@@ -149,7 +172,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
 
     audio.currentTime = nextValue;
     setCurrentTime(nextValue);
-    setDuration(audio.duration || activeOption.durationSec);
+    setDuration(getDisplayDuration(audio.duration, activeOption.durationSec));
   }
 
   return (
@@ -283,15 +306,15 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
                               <input
                                 type="range"
                                 min={0}
-                                max={Math.max(duration || option.durationSec, 1)}
+                                max={getDisplayDuration(duration, option.durationSec)}
                                 step={0.1}
-                                value={Math.min(currentTime, Math.max(duration || option.durationSec, 1))}
+                                value={Math.min(currentTime, getDisplayDuration(duration, option.durationSec))}
                                 onChange={(event) => handleSeek(Number(event.target.value))}
                                 className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[#2b2836]"
                               />
                               <div className="mt-2 flex items-center justify-between text-xs text-[#958da1]">
                                 <span>{formatTime(currentTime)}</span>
-                                <span>{formatTime(duration || option.durationSec)}</span>
+                                <span>{formatTime(getDisplayDuration(duration, option.durationSec))}</span>
                               </div>
                             </div>
                           </div>
@@ -321,17 +344,30 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
                   ) : null}
                 </div>
 
-                {!option.isSelected ? (
-                  <form action={`/api/projects/${projectId}/music/select`} method="POST" className="w-full md:w-auto">
-                    <input type="hidden" name="optionId" value={option.id} />
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg border border-[#4a4455]/50 px-6 py-2 text-sm font-medium transition-colors hover:bg-[#363342] hover:text-[#d2bbff]"
-                    >
-                      选择此项
-                    </button>
-                  </form>
-                ) : null}
+                <div className="flex w-full shrink-0 flex-col gap-3 md:w-auto">
+                  <a
+                    href={getAudioExportHref(projectId, option.id)}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[#4cd7f6]/30 px-4 py-2 text-sm font-medium text-[#4cd7f6] transition-colors hover:bg-[#062230]"
+                  >
+                    <Download className="h-4 w-4" />
+                    导出音频
+                  </a>
+                  {!option.isSelected ? (
+                    <form action={`/api/projects/${projectId}/music/select`} method="POST" className="w-full md:w-auto">
+                      <input type="hidden" name="optionId" value={option.id} />
+                      <button
+                        type="submit"
+                        className="w-full rounded-lg border border-[#4a4455]/50 px-6 py-2 text-sm font-medium transition-colors hover:bg-[#363342] hover:text-[#d2bbff]"
+                      >
+                        选择此项
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="rounded-lg border border-[#d2bbff]/30 bg-[#201e2c] px-4 py-2 text-center text-sm text-[#d2bbff]">
+                      当前已选
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -354,7 +390,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       <div className="fixed right-0 bottom-0 left-0 z-20 h-20 border-t border-[#4A4455]/20 bg-[#14121F]/90 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-lg md:left-72">
         <div className="flex h-full items-center justify-between px-6 md:px-12">
           <Link
-            href="/interfaces/create"
+            href={`/interfaces/create?projectId=${projectId}`}
             className="flex items-center gap-2 rounded-lg border border-[#4A4455]/40 px-6 py-3 font-headline text-xs font-bold uppercase tracking-widest text-[#E5E0F3] transition-all hover:scale-[1.02] hover:opacity-90 active:scale-95"
           >
             <ArrowLeft className="h-4 w-4" />

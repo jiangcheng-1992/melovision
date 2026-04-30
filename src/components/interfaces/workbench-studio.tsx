@@ -82,6 +82,17 @@ const waveform = [
   80, 100,
 ];
 
+function isPlaceholderScenePreviewUrl(url?: string | null) {
+  if (!url) {
+    return true;
+  }
+
+  return (
+    url.includes("placehold.co") ||
+    url.includes("aida-public")
+  );
+}
+
 function getSceneStatusMeta(status: string) {
   switch (status) {
     case "queued":
@@ -906,6 +917,8 @@ export function WorkbenchStudio({
                 <div className="grid grid-cols-3 gap-2 md:gap-3">
                   {gridScenes.map((scene) => {
                     const isSelected = scene.id === selectedScene?.id;
+                    const showGeneratedVideoPreview =
+                      Boolean(scene.resultVideoUrl) && isPlaceholderScenePreviewUrl(scene.previewImageUrl);
                     return (
                       <button
                         key={scene.id}
@@ -917,11 +930,21 @@ export function WorkbenchStudio({
                             : "border-[#4a4455]/20 hover:border-[#4cd7f6]/40"
                         }`}
                       >
-                        <img
-                          alt={`Scene ${scene.sortOrder + 1}`}
-                          className="h-full w-full object-cover"
-                          src={scene.previewImageUrl || "https://placehold.co/512x512/14121f/7c3aed?text=Scene"}
-                        />
+                        {showGeneratedVideoPreview ? (
+                          <video
+                            className="h-full w-full object-cover"
+                            src={scene.resultVideoUrl ?? undefined}
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                        ) : (
+                          <img
+                            alt={`Scene ${scene.sortOrder + 1}`}
+                            className="h-full w-full object-cover"
+                            src={scene.previewImageUrl || "https://placehold.co/512x512/14121f/7c3aed?text=Scene"}
+                          />
+                        )}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#14121f] to-transparent p-2">
                           <div className="text-[10px] font-bold text-white">#{scene.sortOrder + 1}</div>
                           <div className="text-[10px] text-[#ccc3d8]">
@@ -930,7 +953,7 @@ export function WorkbenchStudio({
                         </div>
                         {scene.status === "completed" ? (
                           <div className="absolute top-2 right-2 rounded-full bg-[#03b5d3] px-2 py-0.5 text-[10px] font-medium text-white">
-                            封面
+                            {showGeneratedVideoPreview ? "视频预览" : "封面"}
                           </div>
                         ) : scene.status === "queued" || scene.status === "processing" ? (
                           <div className="absolute top-2 right-2 rounded-full bg-[#7c3aed] px-2 py-0.5 text-[10px] font-medium text-white">

@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
+function sanitizeFileName(value: string) {
+  return (
+    value
+      .normalize("NFKD")
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .toLowerCase() || "melovision-audio"
+  );
+}
+
 function buildMockAudioWav(seed: string, durationSec = 24) {
   const sampleRate = 22050;
   const channelCount = 1;
@@ -44,7 +56,7 @@ function buildMockAudioWav(seed: string, durationSec = 24) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ projectId: string; optionId: string }> },
 ) {
   const user = await getCurrentUser();
@@ -54,6 +66,7 @@ export async function GET(
   }
 
   const { projectId, optionId } = await params;
+  const download = new URL(request.url).searchParams.get("download") === "1";
   const option = await prisma.musicOption.findFirst({
     where: {
       id: optionId,
@@ -81,12 +94,13 @@ export async function GET(
 
   if (option.provider === "suno_mock" || option.audioUrl.includes("mock-suno.local")) {
     const wav = buildMockAudioWav(option.providerRef || option.id);
+    const fileName = `${sanitizeFileName(option.title || option.id)}.wav`;
     return new NextResponse(wav, {
       status: 200,
       headers: {
         "Content-Type": "audio/wav",
         "Cache-Control": "no-store",
-        "Content-Disposition": `inline; filename="${option.id}.wav"`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${fileName}"`,
       },
     });
   }
@@ -106,12 +120,16 @@ export async function GET(
       );
     }
 
+    const fallbackExtension =
+      upstream.headers.get("content-type")?.includes("wav") ? "wav" : "mp3";
+    const fileName = `${sanitizeFileName(option.title || option.id)}.${fallbackExtension}`;
+
     return new NextResponse(upstream.body, {
       status: 200,
       headers: {
         "Content-Type": upstream.headers.get("content-type") || "audio/mpeg",
         "Cache-Control": "no-store",
-        "Content-Disposition": `inline; filename="${option.id}.audio"`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${fileName}"`,
       },
     });
   } catch (error) {

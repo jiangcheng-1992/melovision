@@ -1087,13 +1087,24 @@ async function syncStoryboardSceneVideosForUser(userId: string, projectId: strin
       const detail = await getVideoGenerationTaskWithVolcengine(scene.generationTaskId!);
 
       if (detail.status === "succeeded") {
-        await prisma.storyboardScene.update({
-          where: { id: scene.id },
-          data: {
-            status: "completed",
-            resultVideoUrl: detail.videoUrl ?? null,
-            previewImageUrl: detail.lastFrameUrl ?? scene.previewImageUrl,
-          },
+        await prisma.$transaction(async (tx) => {
+          await tx.storyboardScene.update({
+            where: { id: scene.id },
+            data: {
+              status: "completed",
+              resultVideoUrl: detail.videoUrl ?? null,
+              previewImageUrl: detail.lastFrameUrl ?? scene.previewImageUrl,
+            },
+          });
+
+          if (scene.sortOrder === 0 && detail.lastFrameUrl) {
+            await tx.mvProject.update({
+              where: { id: projectId },
+              data: {
+                coverImageUrl: detail.lastFrameUrl,
+              },
+            });
+          }
         });
         continue;
       }
