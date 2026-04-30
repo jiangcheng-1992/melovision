@@ -5,7 +5,7 @@ const VOLCENGINE_DEFAULT_BASE = "https://ark.cn-beijing.volces.com/api/v3";
 const VOLCENGINE_CHAT_MODEL = "doubao-1-5-lite-32k-250115";
 const VOLCENGINE_IMAGE_MODEL = "seedream-3-0-t2i-250415";
 const VOLCENGINE_VIDEO_MODEL = "doubao-seedance-1-0-pro-fast";
-const VOLCENGINE_TIMEOUT_MS = 30000;
+const VOLCENGINE_TIMEOUT_MS = 60000;
 const VOLCENGINE_VIDEO_POLL_INTERVAL_MS = 5000;
 const VOLCENGINE_VIDEO_POLL_ATTEMPTS = 36;
 
@@ -268,6 +268,7 @@ async function volcengineFetch(path: string, init?: RequestInit) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), VOLCENGINE_TIMEOUT_MS);
+  const startedAt = nowMs();
 
   try {
     const response = await fetch(`${getVolcengineBaseUrl()}${path}`, {
@@ -298,6 +299,15 @@ async function volcengineFetch(path: string, init?: RequestInit) {
     }
 
     return data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVolcengine("request_failed", {
+      path,
+      totalMs: nowMs() - startedAt,
+      aborted: controller.signal.aborted,
+      error: message,
+    });
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
@@ -389,6 +399,7 @@ export async function generateStoryboardImageWithVolcengine(
   logVolcengine("image_generation_start", {
     model: payload.model,
     size: payload.size,
+    timeoutMs: VOLCENGINE_TIMEOUT_MS,
   });
 
   const response = await volcengineFetch("/images/generations", {

@@ -591,7 +591,7 @@ async function ensureScenePreviewImage(project: {
     return scene.previewImageUrl ?? null;
   }
 
-  let fallbackPreviewUrl = scene.previewImageUrl ?? null;
+  let fallbackPreviewUrl = null as string | null;
   if (continuityReferenceImageUrl && isRemoteReferenceAssetUrl(continuityReferenceImageUrl)) {
     fallbackPreviewUrl = continuityReferenceImageUrl;
   }
@@ -634,14 +634,12 @@ async function ensureScenePreviewImage(project: {
       error: error instanceof Error ? error.message : String(error),
     });
 
-    if (fallbackPreviewUrl && fallbackPreviewUrl !== scene.previewImageUrl) {
-      await prisma.storyboardScene.update({
-        where: { id: scene.id },
-        data: {
-          previewImageUrl: fallbackPreviewUrl,
-        },
-      });
-    }
+    await prisma.storyboardScene.update({
+      where: { id: scene.id },
+      data: {
+        previewImageUrl: fallbackPreviewUrl,
+      },
+    });
 
     return fallbackPreviewUrl;
   }
