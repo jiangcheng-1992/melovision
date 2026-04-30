@@ -21,6 +21,12 @@ export async function GET(
     const storyboard = await getStoryboardStateForUser(user.id, projectId);
     return NextResponse.json(storyboard);
   } catch (error) {
+    console.error("[storyboard] fetch_failed", {
+      projectId,
+      userId: user.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "STORYBOARD_FETCH_FAILED" },
       { status: 500 },
