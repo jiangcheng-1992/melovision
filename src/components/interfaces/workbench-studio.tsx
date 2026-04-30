@@ -567,7 +567,7 @@ export function WorkbenchStudio({
         }
       />
 
-      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-16">
         <header className="relative z-10 shrink-0 border-b border-[#4a4455]/10 bg-[#0e0c19]/60 px-4 py-6 md:px-6 md:py-7 xl:px-8 xl:py-8">
           <div className="absolute top-1/2 left-4 hidden -translate-y-1/2 items-center gap-2 md:flex md:left-6 xl:left-8">
             <span className="text-sm text-[#e5e0f3]/80">创作工作台</span>
