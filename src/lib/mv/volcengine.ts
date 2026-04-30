@@ -432,6 +432,7 @@ export async function createVideoGenerationTaskWithVolcengine(
     input.scenes.find((scene) => isRemoteAssetUrl(scene.firstFrameUrl))?.firstFrameUrl ??
     input.scenes.find((scene) => isRemoteAssetUrl(scene.previewImageUrl))?.previewImageUrl;
   const lastFrameUrl = input.scenes.find((scene) => isRemoteAssetUrl(scene.lastFrameUrl))?.lastFrameUrl;
+  const useFirstLastFrameMode = Boolean(firstFrameUrl && lastFrameUrl);
   const referenceImageUrls = Array.from(
     new Set(
       input.scenes
@@ -466,21 +467,23 @@ export async function createVideoGenerationTaskWithVolcengine(
     });
   }
 
-  for (const referenceImageUrl of referenceImageUrls) {
-    if (referenceImageUrl === firstFrameUrl || referenceImageUrl === lastFrameUrl) {
-      continue;
-    }
+  if (!useFirstLastFrameMode) {
+    for (const referenceImageUrl of referenceImageUrls) {
+      if (referenceImageUrl === firstFrameUrl || referenceImageUrl === lastFrameUrl) {
+        continue;
+      }
 
-    content.push({
-      type: "image_url",
-      role: "reference_image",
-      image_url: {
-        url: referenceImageUrl,
-      },
-    });
+      content.push({
+        type: "image_url",
+        role: "reference_image",
+        image_url: {
+          url: referenceImageUrl,
+        },
+      });
+    }
   }
 
-  if (isRemoteAssetUrl(input.referenceAudioUrl)) {
+  if (!useFirstLastFrameMode && isRemoteAssetUrl(input.referenceAudioUrl)) {
     content.push({
       type: "audio_url",
       audio_url: {
@@ -508,10 +511,11 @@ export async function createVideoGenerationTaskWithVolcengine(
   const startedAt = nowMs();
   logVolcengine("video_submit_start", {
     model: payload.model,
+    useFirstLastFrameMode,
     hasFirstFrame: Boolean(firstFrameUrl),
     hasLastFrame: Boolean(lastFrameUrl),
-    referenceImageCount: referenceImageUrls.length,
-    hasReferenceAudio: isRemoteAssetUrl(input.referenceAudioUrl),
+    referenceImageCount: useFirstLastFrameMode ? 0 : referenceImageUrls.length,
+    hasReferenceAudio: !useFirstLastFrameMode && isRemoteAssetUrl(input.referenceAudioUrl),
     duration: payload.duration,
     ratio: payload.ratio,
     resolution: payload.resolution,
