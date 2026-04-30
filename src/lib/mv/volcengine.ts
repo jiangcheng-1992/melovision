@@ -1,4 +1,5 @@
 import "server-only";
+import { sanitizeEnvValue } from "@/lib/env";
 
 const VOLCENGINE_DEFAULT_BASE = "https://ark.cn-beijing.volces.com/api/v3";
 const VOLCENGINE_CHAT_MODEL = "doubao-1-5-lite-32k-250115";
@@ -20,6 +21,9 @@ type VideoSceneInput = {
   prompt: string;
   lyricLine: string;
   previewImageUrl?: string | null;
+  firstFrameUrl?: string | null;
+  lastFrameUrl?: string | null;
+  referenceImageUrls?: string[];
 };
 
 export type VolcengineVideoGenerationInput = {
@@ -32,6 +36,7 @@ export type VolcengineVideoGenerationInput = {
   durationSec?: number;
   resolution?: string;
   generateAudio?: boolean;
+  referenceAudioUrl?: string | null;
 };
 
 export type VolcengineVideoTask = {
@@ -70,32 +75,35 @@ function logVolcengine(event: string, payload?: Record<string, unknown>) {
 }
 
 function getVolcengineBaseUrl() {
-  return (process.env.VOLCENGINE_ARK_BASE_URL?.trim() || VOLCENGINE_DEFAULT_BASE).replace(/\/$/, "");
+  return (sanitizeEnvValue(process.env.VOLCENGINE_ARK_BASE_URL) || VOLCENGINE_DEFAULT_BASE).replace(
+    /\/$/,
+    "",
+  );
 }
 
 function getVolcengineApiKey() {
-  return process.env.VOLCENGINE_ARK_API_KEY?.trim() || "";
+  return sanitizeEnvValue(process.env.VOLCENGINE_ARK_API_KEY) || "";
 }
 
 function getVolcengineImageModel() {
-  return process.env.VOLCENGINE_IMAGE_MODEL?.trim() || VOLCENGINE_IMAGE_MODEL;
+  return sanitizeEnvValue(process.env.VOLCENGINE_IMAGE_MODEL) || VOLCENGINE_IMAGE_MODEL;
 }
 
 function getVolcengineChatModel() {
-  return process.env.VOLCENGINE_CHAT_MODEL?.trim() || VOLCENGINE_CHAT_MODEL;
+  return sanitizeEnvValue(process.env.VOLCENGINE_CHAT_MODEL) || VOLCENGINE_CHAT_MODEL;
 }
 
 function getVolcengineVideoModel() {
-  return process.env.VOLCENGINE_VIDEO_MODEL?.trim() || VOLCENGINE_VIDEO_MODEL;
+  return sanitizeEnvValue(process.env.VOLCENGINE_VIDEO_MODEL) || VOLCENGINE_VIDEO_MODEL;
 }
 
 function getVolcengineVideoCallbackUrl() {
-  const explicit = process.env.VOLCENGINE_VIDEO_CALLBACK_URL?.trim();
+  const explicit = sanitizeEnvValue(process.env.VOLCENGINE_VIDEO_CALLBACK_URL);
   if (explicit) {
     return explicit;
   }
 
-  const appUrl = process.env.NEXTAUTH_URL?.trim();
+  const appUrl = sanitizeEnvValue(process.env.NEXTAUTH_URL);
   if (!appUrl) {
     return undefined;
   }
@@ -152,6 +160,14 @@ function mapResolution(value?: string | null) {
   }
   if (normalized.includes("480")) return "480p";
   return "720p";
+}
+
+function isRemoteAssetUrl(value?: string | null) {
+  if (!value) {
+    return false;
+  }
+
+  return /^https?:\/\//i.test(value.trim());
 }
 
 function buildStoryboardImagePrompt(input: StoryboardImageInput) {
@@ -401,7 +417,17 @@ export async function createVideoGenerationTaskWithVolcengine(
     return null;
   }
 
-  const firstFrameUrl = input.scenes.find((scene) => scene.previewImageUrl)?.previewImageUrl;
+  const firstFrameUrl =
+    input.scenes.find((scene) => isRemoteAssetUrl(scene.firstFrameUrl))?.firstFrameUrl ??
+    input.scenes.find((scene) => isRemoteAssetUrl(scene.previewImageUrl))?.previewImageUrl;
+  const lastFrameUrl = input.scenes.find((scene) => isRemoteAssetUrl(scene.lastFrameUrl))?.lastFrameUrl;
+  const referenceImageUrls = Array.from(
+    new Set(
+      input.scenes
+        .flatMap((scene) => scene.referenceImageUrls ?? [])
+        .filter((value): value is string => isRemoteAssetUrl(value)),
+    ),
+  ).slice(0, 9);
   const content: Array<Record<string, unknown>> = [
     {
       type: "text",
@@ -415,6 +441,39 @@ export async function createVideoGenerationTaskWithVolcengine(
       role: "first_frame",
       image_url: {
         url: firstFrameUrl,
+      },
+    });
+  }
+
+  if (lastFrameUrl) {
+    content.push({
+      type: "image_url",
+      role: "last_frame",
+      image_url: {
+        url: lastFrameUrl,
+      },
+    });
+  }
+
+  for (const referenceImageUrl of referenceImageUrls) {
+    if (referenceImageUrl === firstFrameUrl || referenceImageUrl === lastFrameUrl) {
+      continue;
+    }
+
+    content.push({
+      type: "image_url",
+      role: "reference_image",
+      image_url: {
+        url: referenceImageUrl,
+      },
+    });
+  }
+
+  if (isRemoteAssetUrl(input.referenceAudioUrl)) {
+    content.push({
+      type: "audio_url",
+      audio_url: {
+        url: input.referenceAudioUrl,
       },
     });
   }
@@ -439,6 +498,9 @@ export async function createVideoGenerationTaskWithVolcengine(
   logVolcengine("video_submit_start", {
     model: payload.model,
     hasFirstFrame: Boolean(firstFrameUrl),
+    hasLastFrame: Boolean(lastFrameUrl),
+    referenceImageCount: referenceImageUrls.length,
+    hasReferenceAudio: isRemoteAssetUrl(input.referenceAudioUrl),
     duration: payload.duration,
     ratio: payload.ratio,
     resolution: payload.resolution,

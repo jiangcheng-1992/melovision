@@ -93,6 +93,29 @@ function isPlaceholderScenePreviewUrl(url?: string | null) {
   );
 }
 
+function getSceneDisplayPreviewUrl(scenes: Scene[], targetScene?: Scene | null) {
+  if (!targetScene) {
+    return null;
+  }
+
+  if (!isPlaceholderScenePreviewUrl(targetScene.previewImageUrl)) {
+    return targetScene.previewImageUrl ?? null;
+  }
+
+  for (let index = targetScene.sortOrder - 1; index >= 0; index -= 1) {
+    const previousScene = scenes.find((scene) => scene.sortOrder === index);
+    if (!previousScene) {
+      continue;
+    }
+
+    if (!isPlaceholderScenePreviewUrl(previousScene.previewImageUrl)) {
+      return previousScene.previewImageUrl ?? null;
+    }
+  }
+
+  return targetScene.previewImageUrl ?? null;
+}
+
 function getSceneStatusMeta(status: string) {
   switch (status) {
     case "queued":
@@ -201,6 +224,10 @@ export function WorkbenchStudio({
   const selectedSceneStatus = useMemo(
     () => getSceneStatusMeta(selectedScene?.status ?? "ready"),
     [selectedScene?.status],
+  );
+  const selectedSceneDisplayPreviewUrl = useMemo(
+    () => getSceneDisplayPreviewUrl(scenes, selectedScene),
+    [scenes, selectedScene],
   );
   const soundtrackUrl = selectedMusic
     ? `/api/projects/${projectId}/music-options/${selectedMusic.id}/audio`
@@ -847,7 +874,7 @@ export function WorkbenchStudio({
                       alt="Concept art preview"
                       className="h-full w-full object-cover opacity-80 mix-blend-lighten transition-transform duration-700 group-hover:scale-105"
                       src={
-                        selectedScene?.previewImageUrl ||
+                        selectedSceneDisplayPreviewUrl ||
                         scenes[0]?.previewImageUrl ||
                         "https://lh3.googleusercontent.com/aida-public/AB6AXuC-IFJF1uA2sILcaHTWcap0b1Zcpwk5NC4kecxksehUJOIY2mTm4AfMyjxhwXj7fUBE2JANz2ZO3xak7gWJfsML9IZK6_b39fpF4QAzQUGCpOzYyXjmr_dmYCCpZuIaaaOjfCv1saQVnQ7iKGTtXSXPzkw8Gwd4OvuYprztZdofzggUDOR2Tt3ycbx28Kv0iTkzrsFYd4nhjPrjZj_NV96lkhrGD45VraA534_5_lcJ7cHZAu4cde-Lmp915cRD5zzefnGrDL-Sqw"
                       }
@@ -917,6 +944,7 @@ export function WorkbenchStudio({
                 <div className="grid grid-cols-3 gap-2 md:gap-3">
                   {gridScenes.map((scene) => {
                     const isSelected = scene.id === selectedScene?.id;
+                    const displayPreviewUrl = getSceneDisplayPreviewUrl(scenes, scene);
                     const showGeneratedVideoPreview =
                       Boolean(scene.resultVideoUrl) && isPlaceholderScenePreviewUrl(scene.previewImageUrl);
                     return (
@@ -942,7 +970,7 @@ export function WorkbenchStudio({
                           <img
                             alt={`Scene ${scene.sortOrder + 1}`}
                             className="h-full w-full object-cover"
-                            src={scene.previewImageUrl || "https://placehold.co/512x512/14121f/7c3aed?text=Scene"}
+                            src={displayPreviewUrl || "https://placehold.co/512x512/14121f/7c3aed?text=Scene"}
                           />
                         )}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#14121f] to-transparent p-2">

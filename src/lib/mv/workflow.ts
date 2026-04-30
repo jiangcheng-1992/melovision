@@ -174,6 +174,7 @@ function getSelectedMusicOption(project: {
     genre: string;
     tags: string;
     artworkUrl: string;
+    audioUrl?: string | null;
   }>;
 }) {
   return (
@@ -182,6 +183,36 @@ function getSelectedMusicOption(project: {
     project.musicOptions[0] ??
     null
   );
+}
+
+function isRemoteReferenceAssetUrl(value?: string | null) {
+  if (!value) {
+    return false;
+  }
+
+  return /^https?:\/\//i.test(value.trim()) && !value.includes("mock-suno.local");
+}
+
+function getContinuityReferenceScene(
+  scenes: Array<{
+    sortOrder: number;
+    previewImageUrl?: string | null;
+    resultVideoUrl?: string | null;
+  }>,
+  sortOrder: number,
+) {
+  for (let index = sortOrder - 1; index >= 0; index -= 1) {
+    const matched = scenes.find((scene) => scene.sortOrder === index);
+    if (!matched) {
+      continue;
+    }
+
+    if (!isMockScenePreviewImage(matched.previewImageUrl)) {
+      return matched;
+    }
+  }
+
+  return null;
 }
 
 function buildVolcengineProgress(status: string, fallbackProgress: number) {
@@ -554,22 +585,38 @@ async function ensureScenePreviewImage(project: {
   sortOrder: number;
   prompt: string;
   previewImageUrl?: string | null;
-}) {
+  continuityLine?: string | null;
+}, continuityReferenceImageUrl?: string | null) {
   if (!isMockScenePreviewImage(scene.previewImageUrl)) {
     return scene.previewImageUrl ?? null;
   }
 
+  let fallbackPreviewUrl = scene.previewImageUrl ?? null;
+  if (continuityReferenceImageUrl && isRemoteReferenceAssetUrl(continuityReferenceImageUrl)) {
+    fallbackPreviewUrl = continuityReferenceImageUrl;
+  }
+
+  const enhancedPrompt = [
+    scene.prompt,
+    scene.continuityLine,
+    continuityReferenceImageUrl
+      ? "封面图需要承接上一段视频尾帧的角色造型、构图和镜头方向，同时明确呈现当前分镜的起始动作。"
+      : "封面图需要准确呈现当前分镜提示词，不要出现通用占位物体或无关主体。",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   try {
     const { generateStoryboardImageWithVolcengine } = await import("@/lib/mv/volcengine");
     const generatedImage = await generateStoryboardImageWithVolcengine({
-      prompt: scene.prompt,
+      prompt: enhancedPrompt,
       visualStyle: project.visualStyle,
       aspectRatio: "16:9",
       seed: scene.sortOrder + 1,
     });
 
     if (!generatedImage) {
-      return scene.previewImageUrl ?? null;
+      return fallbackPreviewUrl;
     }
 
     await prisma.storyboardScene.update({
@@ -586,7 +633,17 @@ async function ensureScenePreviewImage(project: {
       sceneId: scene.id,
       error: error instanceof Error ? error.message : String(error),
     });
-    return scene.previewImageUrl ?? null;
+
+    if (fallbackPreviewUrl && fallbackPreviewUrl !== scene.previewImageUrl) {
+      await prisma.storyboardScene.update({
+        where: { id: scene.id },
+        data: {
+          previewImageUrl: fallbackPreviewUrl,
+        },
+      });
+    }
+
+    return fallbackPreviewUrl;
   }
 }
 
@@ -606,6 +663,7 @@ async function hydrateStoryboardScenePreviews(project: NonNullable<Awaited<Retur
           visualStyle: project.visualStyle,
         },
         scene,
+        getContinuityReferenceScene(project.scenes, scene.sortOrder)?.previewImageUrl ?? null,
       ),
     ),
   );
@@ -1305,6 +1363,7 @@ export async function generateStoryboardSceneVideo(
     throw new Error("SCENE_NOT_FOUND");
   }
 
+  const previousScene = getContinuityReferenceScene(project.scenes, scene.sortOrder);
   const selectedMusic = getSelectedMusicOption(project);
   const resolvedPreviewImageUrl = await ensureScenePreviewImage(
     {
@@ -1313,6 +1372,7 @@ export async function generateStoryboardSceneVideo(
       visualStyle: project.visualStyle,
     },
     scene,
+    previousScene?.previewImageUrl ?? null,
   );
 
   try {
@@ -1328,12 +1388,25 @@ export async function generateStoryboardSceneVideo(
           prompt: scene.prompt,
           lyricLine: scene.lyricLine,
           previewImageUrl: resolvedPreviewImageUrl,
+          firstFrameUrl:
+            previousScene?.previewImageUrl && isRemoteReferenceAssetUrl(previousScene.previewImageUrl)
+              ? previousScene.previewImageUrl
+              : resolvedPreviewImageUrl,
+          lastFrameUrl: resolvedPreviewImageUrl,
+          referenceImageUrls: [
+            previousScene?.previewImageUrl,
+            resolvedPreviewImageUrl,
+          ].filter((value): value is string => isRemoteReferenceAssetUrl(value)),
         },
       ],
       aspectRatio: "16:9",
       durationSec: Math.min(10, Math.max(4, scene.endSec - scene.startSec)),
       resolution: project.exportResolution,
-      generateAudio: false,
+      generateAudio: true,
+      referenceAudioUrl:
+        selectedMusic && isRemoteReferenceAssetUrl(selectedMusic.audioUrl)
+          ? selectedMusic.audioUrl
+          : null,
     });
 
     if (!task) {
@@ -1867,6 +1940,11 @@ export async function createGenerationJob(userId: string, projectId: string) {
     throw new Error("PROJECT_NOT_FOUND");
   }
 
+  const hydratedProject = await hydrateStoryboardScenePreviews(currentProject);
+  if (!hydratedProject) {
+    throw new Error("PROJECT_NOT_FOUND");
+  }
+
   if (currentProject.generationStatus === "completed") {
     const completedJob = await prisma.generationJob.findFirst({
       where: {
@@ -1892,22 +1970,35 @@ export async function createGenerationJob(userId: string, projectId: string) {
 
   try {
     const { createVideoGenerationTaskWithVolcengine } = await import("@/lib/mv/volcengine");
-    const selectedMusic = getSelectedMusicOption(currentProject);
+    const selectedMusic = getSelectedMusicOption(hydratedProject);
     const volcTask = await createVideoGenerationTaskWithVolcengine({
-      title: currentProject.title,
-      conceptPrompt: currentProject.conceptPrompt,
-      visualStyle: currentProject.visualStyle,
-      musicStyle: currentProject.musicStyle,
-      scenes: currentProject.scenes.map((scene) => ({
+      title: hydratedProject.title,
+      conceptPrompt: hydratedProject.conceptPrompt,
+      visualStyle: hydratedProject.visualStyle,
+      musicStyle: hydratedProject.musicStyle,
+      scenes: hydratedProject.scenes.map((scene, index, scenes) => ({
         sortOrder: scene.sortOrder,
         prompt: scene.prompt,
         lyricLine: scene.lyricLine,
         previewImageUrl: scene.previewImageUrl,
+        firstFrameUrl:
+          index === 0
+            ? scene.previewImageUrl
+            : getContinuityReferenceScene(scenes, scene.sortOrder)?.previewImageUrl ??
+              scene.previewImageUrl,
+        referenceImageUrls: scenes
+          .slice(Math.max(0, index - 1), Math.min(scenes.length, index + 2))
+          .map((item) => item.previewImageUrl)
+          .filter((value): value is string => isRemoteReferenceAssetUrl(value)),
       })),
       aspectRatio: "16:9",
       durationSec: Math.min(12, Math.max(4, selectedMusic?.durationSec ?? 8)),
-      resolution: currentProject.exportResolution,
+      resolution: hydratedProject.exportResolution,
       generateAudio: true,
+      referenceAudioUrl:
+        selectedMusic && isRemoteReferenceAssetUrl(selectedMusic.audioUrl)
+          ? selectedMusic.audioUrl
+          : null,
     });
 
     if (volcTask) {
