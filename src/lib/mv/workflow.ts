@@ -4,10 +4,14 @@ import { generateStoryboard } from "@/storyboard";
 import type {
   CharacterAnchor,
   GenerateStoryboardInput,
-  StoryboardOutput,
   TimedLyricLine,
   WorldAnchor,
 } from "@/storyboard";
+import {
+  cacheMusicOptionAudioAsset,
+  deleteProjectAudioCache,
+  isCacheableRemoteAudioUrl,
+} from "@/lib/mv/audio-cache";
 import { prisma } from "@/lib/prisma";
 
 const MOCK_ARTWORKS = [
@@ -110,6 +114,46 @@ type MockSunoResponse = {
   };
   data: MockSunoTrack[];
 };
+
+async function cacheProjectMusicOptionAudios(
+  options: Array<{
+    id: string;
+    projectId: string;
+    audioUrl?: string | null;
+    provider: string;
+  }>,
+) {
+  await Promise.all(
+    options.map(async (option) => {
+      if (option.provider !== "suno" || !isCacheableRemoteAudioUrl(option.audioUrl)) {
+        return;
+      }
+
+      try {
+        const cachedUrl = await cacheMusicOptionAudioAsset({
+          projectId: option.projectId,
+          optionId: option.id,
+          sourceUrl: option.audioUrl,
+        });
+
+        if (!cachedUrl) {
+          return;
+        }
+
+        await prisma.musicOption.update({
+          where: { id: option.id },
+          data: { audioUrl: cachedUrl },
+        });
+      } catch (error) {
+        console.warn("[mv.workflow] audio_cache_skipped", {
+          projectId: option.projectId,
+          optionId: option.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }),
+  );
+}
 
 function splitTags(value: string) {
   return value
@@ -1051,6 +1095,15 @@ export async function createProjectWithMockMusic(userId: string, input: CreatePr
     });
   }
 
+  await cacheProjectMusicOptionAudios(
+    project.musicOptions.map((option) => ({
+      id: option.id,
+      projectId: project.id,
+      audioUrl: option.audioUrl,
+      provider: option.provider,
+    })),
+  );
+
   return {
     projectId: project.id,
     musicSource: musicGeneration.source,
@@ -1079,6 +1132,7 @@ export async function saveProjectDraftWithMusic(
   const musicGeneration = await buildMusicOptionsForProject(input);
 
   const updated = await prisma.$transaction(async (tx) => {
+    await deleteProjectAudioCache(existingProjectId);
     await tx.exportJob.deleteMany({
       where: { projectId: existingProjectId },
     });
@@ -1154,6 +1208,17 @@ export async function saveProjectDraftWithMusic(
     return project;
   });
 
+  if (updated?.musicOptions.length) {
+    await cacheProjectMusicOptionAudios(
+      updated.musicOptions.map((option) => ({
+        id: option.id,
+        projectId: existingProjectId,
+        audioUrl: option.audioUrl,
+        provider: option.provider,
+      })),
+    );
+  }
+
   return {
     projectId: updated?.id ?? existingProjectId,
     musicSource: musicGeneration.source,
@@ -1211,6 +1276,7 @@ export async function regenerateMusicOptions(userId: string, projectId: string) 
     throw new Error("PROJECT_NOT_FOUND");
   }
 
+  await deleteProjectAudioCache(projectId);
   await prisma.musicOption.deleteMany({
     where: { projectId },
   });
@@ -1235,6 +1301,15 @@ export async function regenerateMusicOptions(userId: string, projectId: string) 
       status: "draft",
     },
   });
+
+  await cacheProjectMusicOptionAudios(
+    createdOptions.map((option) => ({
+      id: option.id,
+      projectId,
+      audioUrl: option.audioUrl,
+      provider: option.provider,
+    })),
+  );
 
   return {
     musicSource: musicGeneration.source,

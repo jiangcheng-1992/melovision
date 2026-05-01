@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { fetchRemoteAudioAsset } from "@/lib/mv/audio-cache";
 import { recoverSunoAudioAsset } from "@/lib/mv/suno";
 import { prisma } from "@/lib/prisma";
 
@@ -37,59 +38,6 @@ function buildContentDisposition(
   const dispositionType = download ? "attachment" : "inline";
 
   return `${dispositionType}; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
-}
-
-function resolveAudioExtension(contentType: string | null, audioUrl: string) {
-  const normalized = (contentType || "").toLowerCase();
-  if (normalized.includes("wav")) return "wav";
-  if (normalized.includes("mpeg") || normalized.includes("mp3")) return "mp3";
-  if (normalized.includes("aac")) return "aac";
-  if (normalized.includes("ogg")) return "ogg";
-  if (normalized.includes("mp4") || normalized.includes("m4a")) return "m4a";
-
-  try {
-    const pathname = new URL(audioUrl).pathname.toLowerCase();
-    const matched = pathname.match(/\.([a-z0-9]{2,5})$/);
-    if (matched?.[1]) {
-      return matched[1];
-    }
-  } catch {
-    // ignore URL parse failure and use default extension below
-  }
-
-  return "mp3";
-}
-
-async function fetchRemoteAudio(url: string) {
-  const upstream = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "User-Agent": "MeloVision/1.0",
-      Accept: "audio/*,*/*;q=0.8",
-    },
-  });
-
-  if (!upstream.ok) {
-    return {
-      ok: false as const,
-      status: upstream.status,
-      contentType: upstream.headers.get("content-type"),
-      extension: resolveAudioExtension(upstream.headers.get("content-type"), url),
-      buffer: Buffer.alloc(0),
-    };
-  }
-
-  const contentType = upstream.headers.get("content-type") || "audio/mpeg";
-  const extension = resolveAudioExtension(contentType, url);
-  const arrayBuffer = await upstream.arrayBuffer();
-
-  return {
-    ok: true as const,
-    status: upstream.status,
-    contentType,
-    extension,
-    buffer: Buffer.from(arrayBuffer),
-  };
 }
 
 function buildMockAudioWav(seed: string, durationSec = 24) {
@@ -184,7 +132,7 @@ export async function GET(
   }
 
   try {
-    let audioAsset = await fetchRemoteAudio(option.audioUrl);
+    let audioAsset = await fetchRemoteAudioAsset(option.audioUrl);
 
     if (
       audioAsset.ok &&
@@ -194,7 +142,7 @@ export async function GET(
     ) {
       const recovered = await recoverSunoAudioAsset(option.providerRef);
       if (recovered?.downloadUrl) {
-        const refreshed = await fetchRemoteAudio(recovered.downloadUrl);
+        const refreshed = await fetchRemoteAudioAsset(recovered.downloadUrl);
         if (refreshed.ok && refreshed.buffer.byteLength > 0) {
           audioAsset = refreshed;
           await prisma.musicOption
