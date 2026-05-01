@@ -36,6 +36,11 @@ export type SunoMusicOption = {
   providerRef: string;
 };
 
+export type SunoRecoveredAudioAsset = {
+  downloadUrl: string;
+  extension: string;
+};
+
 export type SunoPreviewResult = {
   enabled: boolean;
   request: {
@@ -321,6 +326,30 @@ function extractResponseStatus(payload: unknown) {
   );
 }
 
+function extractNestedString(value: unknown, paths: string[][]) {
+  for (const path of paths) {
+    let current: unknown = value;
+    let matched = true;
+
+    for (const key of path) {
+      if (!current || typeof current !== "object" || !(key in (current as Record<string, unknown>))) {
+        matched = false;
+        break;
+      }
+      current = (current as Record<string, unknown>)[key];
+    }
+
+    if (matched) {
+      const resolved = firstString(current);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 function buildLyricSnippet(track: Record<string, unknown>, fallback: string) {
   const source = firstString(
     track.lyricSnippet,
@@ -353,12 +382,75 @@ function normalizeTrack(
     genre,
     tags: tags.join(","),
     artworkUrl: firstString(track.imageUrl, track.image_url, track.image, track.cover) || FALLBACK_ARTWORK_URL,
-    audioUrl: firstString(track.audioUrl, track.audio_url, track.streamAudioUrl, track.stream_audio_url),
+    audioUrl: firstString(track.streamAudioUrl, track.stream_audio_url, track.audioUrl, track.audio_url),
     provider: "suno",
     providerRef:
       firstString(track.id, track.audioId, track.audio_id, track.clip_id) ||
       `${taskId || input.title}-clip-${index + 1}`,
   };
+}
+
+export async function recoverSunoAudioAsset(audioId: string): Promise<SunoRecoveredAudioAsset | null> {
+  if (!audioId.trim() || !isSunoEnabled()) {
+    return null;
+  }
+
+  try {
+    const generateResponse = await sunoFetch("/wav/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        audioId,
+        callBackUrl: getSunoCallbackUrl(),
+      }),
+    });
+
+    const taskId = extractTaskId(generateResponse);
+    if (!taskId) {
+      return null;
+    }
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt > 0) {
+        await sleep(3000);
+      }
+
+      const detailResponse = await sunoFetch(
+        `/wav/record-info?taskId=${encodeURIComponent(taskId)}`,
+        { method: "GET" },
+      );
+
+      const successFlag = extractNestedString(detailResponse, [
+        ["data", "successFlag"],
+        ["data", "status"],
+        ["status"],
+      ]);
+
+      const downloadUrl = extractNestedString(detailResponse, [
+        ["data", "response", "audioWavUrl"],
+        ["data", "response", "audio_wav_url"],
+        ["data", "audioWavUrl"],
+        ["data", "audio_wav_url"],
+      ]);
+
+      if (downloadUrl) {
+        return {
+          downloadUrl,
+          extension: "wav",
+        };
+      }
+
+      if (successFlag && successFlag !== "PENDING" && successFlag !== "PROCESSING") {
+        break;
+      }
+    }
+  } catch (error) {
+    logSuno("audio_recover_failed", {
+      audioId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return null;
 }
 
 export async function generateMusicOptionsWithSuno(input: SunoGenerationInput) {

@@ -43,13 +43,25 @@ function getDisplayDuration(rawDuration: number, fallbackDuration: number) {
 }
 
 function getAudioExportHref(projectId: string, optionId: string) {
-  return `/api/projects/${projectId}/music-options/${optionId}/audio?download=1`;
+  return `/api/music-options/${optionId}/download?download=1`;
 }
 
 function getAudioExportFileName(option: MusicOption) {
   const extension = option.audioUrl?.toLowerCase().includes(".wav") ? "wav" : "mp3";
   const title = option.title.trim() || "MeloVision Audio";
   return `${title}.${extension}`;
+}
+
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 function getLyricLines(option: MusicOption) {
@@ -63,6 +75,8 @@ function getLyricLines(option: MusicOption) {
 export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps) {
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [activeOptionId, setActiveOptionId] = useState<string | null>(options[0]?.id ?? null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -170,6 +184,60 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
     }
   }
 
+  async function handleExport(option: MusicOption) {
+    setExportError(null);
+    setExportingId(option.id);
+
+    try {
+      const proxyResponse = await fetch(getAudioExportHref(projectId, option.id), {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+
+      if (proxyResponse.ok) {
+        const blob = await proxyResponse.blob();
+        if (blob.size > 0) {
+          triggerBrowserDownload(blob, getAudioExportFileName(option));
+          return;
+        }
+      }
+
+      if (option.audioUrl) {
+        try {
+          const directResponse = await fetch(option.audioUrl, {
+            method: "GET",
+            cache: "no-store",
+          });
+
+          if (directResponse.ok) {
+            const blob = await directResponse.blob();
+            if (blob.size > 0) {
+              triggerBrowserDownload(blob, getAudioExportFileName(option));
+              return;
+            }
+          }
+        } catch {
+          // ignore direct fetch failure and fall through to direct browser open
+        }
+
+        window.open(option.audioUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      setExportError("音频暂时无法导出，请稍后重试。");
+    } catch {
+      if (option.audioUrl) {
+        window.open(option.audioUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      setExportError("音频暂时无法导出，请稍后重试。");
+    } finally {
+      setExportingId(null);
+    }
+  }
+
   function handleSeek(nextValue: number) {
     const audio = audioRef.current;
     if (!audio || !activeOption) {
@@ -192,6 +260,12 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       {previewTitle ? (
         <div className="mb-5 rounded-lg border border-[#4cd7f6]/20 bg-[#062230] p-4 text-sm text-[#b6eeff]">
           正在试听：{previewTitle}
+        </div>
+      ) : null}
+
+      {exportError ? (
+        <div className="mb-5 rounded-lg border border-[#ffb4ab]/20 bg-[#93000a]/10 p-4 text-sm text-[#ffd7d1]">
+          {exportError}
         </div>
       ) : null}
 
@@ -351,14 +425,15 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
                 </div>
 
                 <div className="flex w-full shrink-0 flex-col gap-3 md:w-auto">
-                  <a
-                    href={getAudioExportHref(projectId, option.id)}
-                    download={getAudioExportFileName(option)}
+                  <button
+                    type="button"
+                    onClick={() => void handleExport(option)}
+                    disabled={exportingId === option.id}
                     className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[#4cd7f6]/30 px-4 py-2 text-sm font-medium text-[#4cd7f6] transition-colors hover:bg-[#062230]"
                   >
                     <Download className="h-4 w-4" />
-                    导出音频
-                  </a>
+                    {exportingId === option.id ? "导出中..." : "导出音频"}
+                  </button>
                   {!option.isSelected ? (
                     <form action={`/api/projects/${projectId}/music/select`} method="POST" className="w-full md:w-auto">
                       <input type="hidden" name="optionId" value={option.id} />

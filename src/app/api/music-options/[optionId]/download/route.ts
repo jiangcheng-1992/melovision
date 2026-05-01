@@ -25,11 +25,7 @@ function sanitizeUnicodeFileName(value: string) {
   );
 }
 
-function buildContentDisposition(
-  title: string,
-  extension: string,
-  download: boolean,
-) {
+function buildContentDisposition(title: string, extension: string, download: boolean) {
   const safeExtension = extension.replace(/^\./, "") || "mp3";
   const asciiFallback = `${sanitizeFileName(title)}.${safeExtension}`;
   const unicodeName = `${sanitizeUnicodeFileName(title)}.${safeExtension}`;
@@ -58,38 +54,6 @@ function resolveAudioExtension(contentType: string | null, audioUrl: string) {
   }
 
   return "mp3";
-}
-
-async function fetchRemoteAudio(url: string) {
-  const upstream = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "User-Agent": "MeloVision/1.0",
-      Accept: "audio/*,*/*;q=0.8",
-    },
-  });
-
-  if (!upstream.ok) {
-    return {
-      ok: false as const,
-      status: upstream.status,
-      contentType: upstream.headers.get("content-type"),
-      extension: resolveAudioExtension(upstream.headers.get("content-type"), url),
-      buffer: Buffer.alloc(0),
-    };
-  }
-
-  const contentType = upstream.headers.get("content-type") || "audio/mpeg";
-  const extension = resolveAudioExtension(contentType, url);
-  const arrayBuffer = await upstream.arrayBuffer();
-
-  return {
-    ok: true as const,
-    status: upstream.status,
-    contentType,
-    extension,
-    buffer: Buffer.from(arrayBuffer),
-  };
 }
 
 function buildMockAudioWav(seed: string, durationSec = 24) {
@@ -133,22 +97,52 @@ function buildMockAudioWav(seed: string, durationSec = 24) {
   return buffer;
 }
 
+async function fetchRemoteAudio(url: string) {
+  const upstream = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "User-Agent": "MeloVision/1.0",
+      Accept: "audio/*,*/*;q=0.8",
+    },
+  });
+
+  if (!upstream.ok) {
+    return {
+      ok: false as const,
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+      extension: resolveAudioExtension(upstream.headers.get("content-type"), url),
+      buffer: Buffer.alloc(0),
+    };
+  }
+
+  const contentType = upstream.headers.get("content-type") || "audio/mpeg";
+  const extension = resolveAudioExtension(contentType, url);
+  const arrayBuffer = await upstream.arrayBuffer();
+
+  return {
+    ok: true as const,
+    status: upstream.status,
+    contentType,
+    extension,
+    buffer: Buffer.from(arrayBuffer),
+  };
+}
+
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ projectId: string; optionId: string }> },
+  { params }: { params: Promise<{ optionId: string }> },
 ) {
   const user = await getCurrentUser();
-
   if (!user) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const { projectId, optionId } = await params;
+  const { optionId } = await params;
   const download = new URL(request.url).searchParams.get("download") === "1";
   const option = await prisma.musicOption.findFirst({
     where: {
       id: optionId,
-      projectId,
       project: {
         userId: user.id,
       },
