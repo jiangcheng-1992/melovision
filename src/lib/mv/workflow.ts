@@ -234,6 +234,53 @@ function resolveScenePromptBundle(project: {
   );
 }
 
+function isLegacyPlaceholderStoryboardScene(
+  projectTitle: string,
+  scene: {
+    lyricLine: string;
+    prompt: string;
+    resultVideoUrl?: string | null;
+    generationTaskId?: string | null;
+    status?: string | null;
+  },
+) {
+  if (scene.resultVideoUrl || scene.generationTaskId) {
+    return false;
+  }
+
+  const lyricLine = scene.lyricLine.trim();
+  const videoPrompt = extractStoryboardVideoPrompt(scene.prompt);
+  const hasPromptPackage = Boolean(parseStoryboardPromptBundle(scene.prompt));
+
+  return (
+    !hasPromptPackage &&
+    (lyricLine === `${projectTitle} 新增段落` ||
+      videoPrompt.includes("风格新增段落") ||
+      videoPrompt.includes("承接上一镜头情绪并推动故事进入下一幕"))
+  );
+}
+
+function shouldRebuildStoryboardScenes(project: {
+  title: string;
+  scenes: Array<{
+    lyricLine: string;
+    prompt: string;
+    resultVideoUrl?: string | null;
+    generationTaskId?: string | null;
+    status?: string | null;
+  }>;
+}) {
+  if (project.scenes.length === 0) {
+    return true;
+  }
+
+  if (project.scenes.length !== 1) {
+    return false;
+  }
+
+  return isLegacyPlaceholderStoryboardScene(project.title, project.scenes[0]);
+}
+
 function splitTags(value: string) {
   return value
     .split(",")
@@ -1466,7 +1513,8 @@ export async function ensureStoryboardScenes(userId: string, projectId: string) 
 
   await ensureStoryboardSettingsRecord(projectId, project.visualStyle);
 
-  if (project.scenes.length > 0) {
+  const shouldRebuild = shouldRebuildStoryboardScenes(project);
+  if (project.scenes.length > 0 && !shouldRebuild) {
     return project;
   }
 
@@ -1480,15 +1528,23 @@ export async function ensureStoryboardScenes(userId: string, projectId: string) 
     selectedMusic,
   });
 
-  await prisma.mvProject.update({
-    where: { id: projectId },
-    data: {
-      status: "storyboard_ready",
-      scenes: {
-        create: scenes,
+  await prisma.$transaction(async (tx) => {
+    if (shouldRebuild && project.scenes.length > 0) {
+      await tx.storyboardScene.deleteMany({
+        where: { projectId },
+      });
+    }
+
+    await tx.mvProject.update({
+      where: { id: projectId },
+      data: {
+        status: "storyboard_ready",
+        scenes: {
+          create: scenes,
+        },
+        coverImageUrl: scenes[0]?.previewImageUrl ?? null,
       },
-      coverImageUrl: scenes[0]?.previewImageUrl ?? null,
-    },
+    });
   });
 
   return getProjectForUser(userId, projectId);
