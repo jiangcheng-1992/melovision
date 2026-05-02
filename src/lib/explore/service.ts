@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { extractStoryboardVideoPrompt } from "@/lib/mv/storyboard-prompt-package";
 
 const ACCENT_CLASSES = [
   "text-[#4cd7f6] border-[#4cd7f6]/30",
@@ -254,7 +255,7 @@ function buildPublicProjectDetail(
       startSec: scene.startSec,
       endSec: scene.endSec,
       lyricLine: scene.lyricLine,
-      prompt: scene.prompt,
+      prompt: extractStoryboardVideoPrompt(scene.prompt),
       previewImageUrl: scene.previewImageUrl ?? "",
     })),
     music: selectedMusic

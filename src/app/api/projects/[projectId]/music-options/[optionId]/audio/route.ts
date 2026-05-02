@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { fetchRemoteAudioAsset } from "@/lib/mv/audio-cache";
+import {
+  cacheMusicOptionAudioAsset,
+  fetchRemoteAudioAsset,
+  type RemoteAudioAsset,
+  readCachedMusicOptionAssetByOption,
+} from "@/lib/mv/audio-cache";
 import { recoverSunoAudioAsset } from "@/lib/mv/suno";
 import { prisma } from "@/lib/prisma";
 
@@ -85,6 +90,58 @@ function toBinaryResponseBody(buffer: Buffer) {
   return new Uint8Array(buffer);
 }
 
+async function tryRecoverAndCacheSunoAudio(option: {
+  id: string;
+  projectId: string;
+  provider: string;
+  providerRef: string | null;
+}): Promise<RemoteAudioAsset | null> {
+  if (option.provider !== "suno" || !option.providerRef) {
+    return null;
+  }
+
+  const recovered = await recoverSunoAudioAsset(option.providerRef);
+  if (!recovered?.downloadUrl) {
+    return null;
+  }
+
+  const cachedUrl = await cacheMusicOptionAudioAsset({
+    projectId: option.projectId,
+    optionId: option.id,
+    sourceUrl: recovered.downloadUrl,
+  }).catch(() => null);
+
+  const cachedAsset = await readCachedMusicOptionAssetByOption(option.projectId, option.id);
+  if (cachedAsset) {
+    await prisma.musicOption
+      .update({
+        where: { id: option.id },
+        data: { audioUrl: cachedUrl ?? recovered.downloadUrl },
+      })
+      .catch(() => undefined);
+    return {
+      ok: true,
+      status: 200,
+      contentType: cachedAsset.contentType,
+      extension: cachedAsset.extension,
+      buffer: cachedAsset.buffer,
+    };
+  }
+
+  const refreshed = await fetchRemoteAudioAsset(recovered.downloadUrl);
+  if (refreshed.ok && refreshed.buffer.byteLength > 0) {
+    await prisma.musicOption
+      .update({
+        where: { id: option.id },
+        data: { audioUrl: cachedUrl ?? recovered.downloadUrl },
+      })
+      .catch(() => undefined);
+    return refreshed;
+  }
+
+  return null;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ projectId: string; optionId: string }> },
@@ -107,6 +164,7 @@ export async function GET(
     },
     select: {
       id: true,
+      projectId: true,
       title: true,
       audioUrl: true,
       provider: true,
@@ -136,26 +194,29 @@ export async function GET(
   }
 
   try {
+    const cachedAsset = await readCachedMusicOptionAssetByOption(projectId, option.id);
+    if (cachedAsset) {
+      return new NextResponse(toBinaryResponseBody(cachedAsset.buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": cachedAsset.contentType || "audio/mpeg",
+          "Cache-Control": "no-store",
+          "Content-Length": `${cachedAsset.buffer.byteLength}`,
+          "Content-Disposition": buildContentDisposition(
+            option.title || option.id,
+            cachedAsset.extension,
+            download,
+          ),
+        },
+      });
+    }
+
     let audioAsset = await fetchRemoteAudioAsset(option.audioUrl);
 
-    if (
-      audioAsset.ok &&
-      audioAsset.buffer.byteLength === 0 &&
-      option.provider === "suno" &&
-      option.providerRef
-    ) {
-      const recovered = await recoverSunoAudioAsset(option.providerRef);
-      if (recovered?.downloadUrl) {
-        const refreshed = await fetchRemoteAudioAsset(recovered.downloadUrl);
-        if (refreshed.ok && refreshed.buffer.byteLength > 0) {
-          audioAsset = refreshed;
-          await prisma.musicOption
-            .update({
-              where: { id: option.id },
-              data: { audioUrl: recovered.downloadUrl },
-            })
-            .catch(() => undefined);
-        }
+    if (!audioAsset.ok || audioAsset.buffer.byteLength === 0) {
+      const recoveredAsset = await tryRecoverAndCacheSunoAudio(option);
+      if (recoveredAsset) {
+        audioAsset = recoveredAsset;
       }
     }
 
@@ -171,6 +232,22 @@ export async function GET(
         { error: "AUDIO_FETCH_EMPTY" },
         { status: 502 },
       );
+    }
+
+    if (option.provider === "suno") {
+      const cachedUrl = await cacheMusicOptionAudioAsset({
+        projectId,
+        optionId: option.id,
+        sourceUrl: option.audioUrl,
+      }).catch(() => null);
+      if (cachedUrl) {
+        await prisma.musicOption
+          .update({
+            where: { id: option.id },
+            data: { audioUrl: cachedUrl },
+          })
+          .catch(() => undefined);
+      }
     }
 
     return new NextResponse(toBinaryResponseBody(audioAsset.buffer), {

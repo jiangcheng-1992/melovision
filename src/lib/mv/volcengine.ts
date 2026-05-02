@@ -19,6 +19,10 @@ type StoryboardImageInput = {
 type VideoSceneInput = {
   sortOrder: number;
   prompt: string;
+  videoPrompt?: string;
+  sharedContext?: string;
+  negativePrompt?: string;
+  continuityLine?: string | null;
   lyricLine: string;
   previewImageUrl?: string | null;
   firstFrameUrl?: string | null;
@@ -183,9 +187,17 @@ function buildVideoPrompt(input: VolcengineVideoGenerationInput) {
     .slice(0, 8)
     .map(
       (scene) =>
-        `Scene ${scene.sortOrder + 1}: ${scene.lyricLine}；镜头描述：${scene.prompt}`,
+        [
+          `Scene ${scene.sortOrder + 1}: ${scene.lyricLine}`,
+          scene.sharedContext ? `共享上下文：${scene.sharedContext}` : null,
+          scene.continuityLine ? `承接关系：${scene.continuityLine}` : null,
+          `视频提示词：${scene.videoPrompt ?? scene.prompt}`,
+          scene.negativePrompt ? `负向约束：${scene.negativePrompt}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
     )
-    .join("\n");
+    .join("\n\n");
 
   return [
     `为歌曲《${input.title}》生成一个高质量音乐短片。`,

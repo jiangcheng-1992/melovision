@@ -214,3 +214,17 @@ export async function readCachedMusicOptionAsset(projectId: string, fileName: st
     contentType: resolveAudioContentType(extension),
   };
 }
+
+export async function readCachedMusicOptionAssetByOption(projectId: string, optionId: string) {
+  for (const extension of ["mp3", "wav", "aac", "ogg", "m4a", "mp4"]) {
+    const asset = await readCachedMusicOptionAsset(
+      projectId,
+      buildCachedMusicOptionFileName(optionId, extension),
+    );
+    if (asset) {
+      return asset;
+    }
+  }
+
+  return null;
+}

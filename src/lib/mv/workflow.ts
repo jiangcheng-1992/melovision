@@ -4,6 +4,7 @@ import { generateStoryboard } from "@/storyboard";
 import type {
   CharacterAnchor,
   GenerateStoryboardInput,
+  PromptBundle,
   TimedLyricLine,
   WorldAnchor,
 } from "@/storyboard";
@@ -12,6 +13,12 @@ import {
   deleteProjectAudioCache,
   isCacheableRemoteAudioUrl,
 } from "@/lib/mv/audio-cache";
+import {
+  extractStoryboardVideoPrompt,
+  parseStoryboardPromptBundle,
+  serializeStoryboardPromptBundle,
+  updateStoryboardVideoPrompt,
+} from "@/lib/mv/storyboard-prompt-package";
 import { prisma } from "@/lib/prisma";
 
 const MOCK_ARTWORKS = [
@@ -152,6 +159,78 @@ async function cacheProjectMusicOptionAudios(
         });
       }
     }),
+  );
+}
+
+function presentStoryboardScenePrompt<T extends { prompt: string }>(scene: T): T {
+  return {
+    ...scene,
+    prompt: extractStoryboardVideoPrompt(scene.prompt),
+  };
+}
+
+function buildSceneSharedContext(project: {
+  title: string;
+  conceptPrompt: string;
+  visualStyle: string;
+}, scene: {
+  lyricLine: string;
+  continuityLine?: string | null;
+}) {
+  return [
+    `项目：${project.title}`,
+    `整体概念：${project.conceptPrompt}`,
+    `视觉风格：${project.visualStyle}`,
+    `当前歌词：${scene.lyricLine}`,
+    scene.continuityLine ? `连续性：${scene.continuityLine}` : "连续性：首镜建立主角、空间与情绪基调。",
+  ].join("\n");
+}
+
+function buildFallbackScenePromptBundle(project: {
+  title: string;
+  conceptPrompt: string;
+  visualStyle: string;
+}, scene: {
+  sortOrder: number;
+  lyricLine: string;
+  prompt: string;
+  continuityLine?: string | null;
+}, continuityReferenceImageUrl?: string | null): PromptBundle {
+  const videoPrompt = extractStoryboardVideoPrompt(scene.prompt);
+  const coverPrompt = [
+    `为 MV《${project.title}》生成第 ${scene.sortOrder + 1} 段分镜封面图。`,
+    `整体风格：${project.visualStyle}`,
+    `当前歌词片段：${scene.lyricLine}`,
+    scene.continuityLine ? `承接上一镜：${scene.continuityLine}` : "首镜负责建立主体、空间和情绪基调。",
+    continuityReferenceImageUrl
+      ? "必须参考上一镜的真实尾帧或封面，保持主角外观、服装、空间方向和镜头朝向连续。"
+      : "如果没有上一镜，先建立统一主角、场景和光线，不要出现占位物体。",
+    "任务目标：只定格这一镜最能代表叙事推进和情绪转折的一帧。",
+    `视频镜头上下文：${videoPrompt}`,
+  ].join("\n");
+
+  return {
+    shared_context: buildSceneSharedContext(project, scene),
+    cover_prompt: coverPrompt,
+    video_prompt: videoPrompt,
+    negative_prompt:
+      "text, typography, subtitles, watermark, logo, extra characters, duplicated people, malformed hands, broken limbs, fused fingers, deformed face, low consistency, sudden costume change, random location change, unrelated props, collage composition",
+  };
+}
+
+function resolveScenePromptBundle(project: {
+  title: string;
+  conceptPrompt: string;
+  visualStyle: string;
+}, scene: {
+  sortOrder: number;
+  lyricLine: string;
+  prompt: string;
+  continuityLine?: string | null;
+}, continuityReferenceImageUrl?: string | null) {
+  return (
+    parseStoryboardPromptBundle(scene.prompt) ??
+    buildFallbackScenePromptBundle(project, scene, continuityReferenceImageUrl)
   );
 }
 
@@ -621,7 +700,7 @@ async function buildStoryboardScenes(project: {
         endSec,
         lyricLine: scene.segment.text,
         continuityLine: scene.plan.continuity_with_prev ?? null,
-        prompt: scene.prompts.video_prompt,
+        prompt: serializeStoryboardPromptBundle(scene.prompts),
         previewImageUrl: null,
         status: "ready",
       };
@@ -665,7 +744,18 @@ function buildFallbackStoryboardScenes(
       endSec: toSceneEndSecond(line.endSec, durationSec, toSceneStartSecond(line.startSec)),
       lyricLine: line.text,
       continuityLine,
-      prompt: `${project.visualStyle} 风格的 MV 分镜 ${index + 1}，围绕“${project.title}”展开，画面关键词：${line.text}。${continuityLine ?? "建立主角与场景的核心氛围。"} 单段时长控制在 10 秒内，整体保持电影感、统一主角设定、镜头语言清晰。`,
+      prompt: serializeStoryboardPromptBundle(
+        buildFallbackScenePromptBundle(
+          project,
+          {
+            sortOrder: index,
+            lyricLine: line.text,
+            prompt: `${project.visualStyle} 风格的 MV 分镜 ${index + 1}，围绕“${project.title}”展开，画面关键词：${line.text}。${continuityLine ?? "建立主角与场景的核心氛围。"} 单段时长控制在 10 秒内，整体保持电影感、统一主角设定、镜头语言清晰。`,
+            continuityLine,
+          },
+          index > 0 ? null : null,
+        ),
+      ),
       previewImageUrl: null,
       status: "ready",
     };
@@ -826,6 +916,7 @@ function isMockScenePreviewImage(url?: string | null) {
 async function ensureScenePreviewImage(project: {
   id: string;
   title: string;
+  conceptPrompt: string;
   visualStyle: string;
 }, scene: {
   id: string;
@@ -844,11 +935,8 @@ async function ensureScenePreviewImage(project: {
     fallbackPreviewUrl = continuityReferenceImageUrl;
   }
 
-  const enhancedPrompt = [
-    buildSceneCoverPrompt(project, scene, continuityReferenceImageUrl),
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const promptBundle = resolveScenePromptBundle(project, scene, continuityReferenceImageUrl);
+  const enhancedPrompt = buildSceneCoverPrompt(project, scene, promptBundle, continuityReferenceImageUrl);
 
   try {
     const { generateStoryboardImageWithVolcengine } = await import("@/lib/mv/volcengine");
@@ -892,6 +980,7 @@ async function ensureScenePreviewImage(project: {
 function buildSceneCoverPrompt(
   project: {
     title: string;
+    conceptPrompt: string;
     visualStyle: string;
   },
   scene: {
@@ -900,20 +989,16 @@ function buildSceneCoverPrompt(
     prompt: string;
     continuityLine?: string | null;
   },
+  promptBundle: PromptBundle,
   continuityReferenceImageUrl?: string | null,
 ) {
   return [
-    `为 MV《${project.title}》生成第 ${scene.sortOrder + 1} 段分镜封面图。`,
-    `整体风格：${project.visualStyle}`,
-    `当前歌词片段：${scene.lyricLine}`,
-    scene.continuityLine ? `承接上一镜：${scene.continuityLine}` : "首镜负责建立主体、空间和情绪基调。",
-    "任务目标：只定格这一镜最能代表叙事推进和情绪转折的一帧。",
-    "封面图 prompt 与视频 prompt 必须共享同一镜头上下文，但封面图更强调定格瞬间、角色表情、构图和起始动作。",
+    promptBundle.shared_context,
+    promptBundle.cover_prompt,
     continuityReferenceImageUrl
       ? "必须参考上一镜的真实尾帧或封面，保持主角外观、服装、空间方向和镜头朝向连续。"
       : "如果没有上一镜，先建立统一主角、场景和光线，不要出现占位物体。",
-    "禁止文字水印、额外角色、肢体错位、无关道具、随机换景。",
-    `视频镜头上下文：${scene.prompt}`,
+    `负向约束：${promptBundle.negative_prompt}`,
   ].join("\n");
 }
 
@@ -930,6 +1015,7 @@ async function hydrateStoryboardScenePreviews(project: NonNullable<Awaited<Retur
         {
           id: project.id,
           title: project.title,
+          conceptPrompt: project.conceptPrompt,
           visualStyle: project.visualStyle,
         },
         scene,
@@ -938,7 +1024,7 @@ async function hydrateStoryboardScenePreviews(project: NonNullable<Awaited<Retur
     ),
   );
 
-  return getProjectForUser(project.userId, project.id);
+  return getProjectRecordForUser(project.userId, project.id);
 }
 
 function buildSceneDoneMessage(scene: {
@@ -1227,7 +1313,7 @@ export async function saveProjectDraftWithMusic(
   };
 }
 
-export async function getProjectForUser(userId: string, projectId: string) {
+async function getProjectRecordForUser(userId: string, projectId: string) {
   return prisma.mvProject.findFirst({
     where: {
       id: projectId,
@@ -1246,6 +1332,18 @@ export async function getProjectForUser(userId: string, projectId: string) {
       storyboardSettings: true,
     },
   });
+}
+
+function presentProjectPrompts<T extends { scenes: Array<{ prompt: string }> }>(project: T): T {
+  return {
+    ...project,
+    scenes: project.scenes.map((scene) => presentStoryboardScenePrompt(scene)),
+  };
+}
+
+export async function getProjectForUser(userId: string, projectId: string) {
+  const project = await getProjectRecordForUser(userId, projectId);
+  return project ? presentProjectPrompts(project) : null;
 }
 
 async function ensureStoryboardSettingsRecord(projectId: string, visualStyle: string) {
@@ -1412,7 +1510,7 @@ export async function getStoryboardStateForUser(userId: string, projectId: strin
   const settings = await ensureStoryboardSettingsRecord(projectId, project.visualStyle);
 
   return {
-    scenes: project.scenes,
+    scenes: project.scenes.map((scene) => presentStoryboardScenePrompt(scene)),
     settings: {
       styleTags: parseStyleTagsJson(settings.styleTagsJson, [project.visualStyle]),
       consistencyBoost: settings.consistencyBoost,
@@ -1423,7 +1521,7 @@ export async function getStoryboardStateForUser(userId: string, projectId: strin
 }
 
 async function syncStoryboardSceneVideosForUser(userId: string, projectId: string) {
-  const project = await getProjectForUser(userId, projectId);
+  const project = await getProjectRecordForUser(userId, projectId);
 
   if (!project) {
     return null;
@@ -1492,7 +1590,7 @@ async function syncStoryboardSceneVideosForUser(userId: string, projectId: strin
     });
   }
 
-  return getProjectForUser(userId, projectId);
+  return getProjectRecordForUser(userId, projectId);
 }
 
 export async function updateStoryboardScene(
@@ -1520,16 +1618,21 @@ export async function updateStoryboardScene(
     throw new Error("SCENE_NOT_FOUND");
   }
 
-  return prisma.storyboardScene.update({
+  const updated = await prisma.storyboardScene.update({
     where: { id: sceneId },
     data: {
-      prompt: input.prompt ?? scene.prompt,
+      prompt:
+        typeof input.prompt === "string"
+          ? updateStoryboardVideoPrompt(scene.prompt, input.prompt)
+          : scene.prompt,
       lyricLine: input.lyricLine ?? scene.lyricLine,
       continuityLine: input.lyricLine
         ? `承接上一段镜头情绪，并自然过渡到围绕“${input.lyricLine}”的新镜头段落。`
         : scene.continuityLine,
     },
   });
+
+  return presentStoryboardScenePrompt(updated);
 }
 
 export async function optimizeStoryboardScene(userId: string, projectId: string, sceneId: string) {
@@ -1551,7 +1654,8 @@ export async function optimizeStoryboardScene(userId: string, projectId: string,
     throw new Error("SCENE_NOT_FOUND");
   }
 
-  let optimizedPrompt = `${scene.prompt}\n强化主体动作连续性、镜头景别层次和光影对比，保持 ${project.visualStyle} 的统一美术语言，并让转场更贴合音乐节奏。`;
+  const editablePrompt = extractStoryboardVideoPrompt(scene.prompt);
+  let optimizedPrompt = `${editablePrompt}\n强化主体动作连续性、镜头景别层次和光影对比，保持 ${project.visualStyle} 的统一美术语言，并让转场更贴合音乐节奏。`;
 
   try {
     const { optimizeStoryboardPromptWithVolcengine } = await import("@/lib/mv/volcengine");
@@ -1560,7 +1664,7 @@ export async function optimizeStoryboardScene(userId: string, projectId: string,
       visualStyle: project.visualStyle,
       musicStyle: project.musicStyle,
       lyricLine: scene.lyricLine,
-      prompt: scene.prompt,
+      prompt: editablePrompt,
     });
 
     if (generatedPrompt) {
@@ -1574,15 +1678,17 @@ export async function optimizeStoryboardScene(userId: string, projectId: string,
     });
   }
 
-  return prisma.storyboardScene.update({
+  const updated = await prisma.storyboardScene.update({
     where: { id: sceneId },
     data: {
-      prompt: optimizedPrompt,
+      prompt: updateStoryboardVideoPrompt(scene.prompt, optimizedPrompt),
       continuityLine:
         scene.continuityLine ??
         `保持当前人物和镜头运动连续，并让当前段落自然衔接到下一段。`,
     },
   });
+
+  return presentStoryboardScenePrompt(updated);
 }
 
 export async function regenerateStoryboardScene(userId: string, projectId: string, sceneId: string) {
@@ -1617,7 +1723,10 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
   const regeneratedScene = regeneratedScenes.find((item) => item.sortOrder === scene.sortOrder);
   const nextPrompt =
     regeneratedScene?.prompt ??
-    `${scene.prompt}\n已按当前音乐节奏重新优化镜头推进与画面调度。`;
+    updateStoryboardVideoPrompt(
+      scene.prompt,
+      `${extractStoryboardVideoPrompt(scene.prompt)}\n已按当前音乐节奏重新优化镜头推进与画面调度。`,
+    );
   const nextLyricLine = regeneratedScene?.lyricLine ?? scene.lyricLine;
   const nextContinuityLine = regeneratedScene?.continuityLine ?? scene.continuityLine;
   const previousScene = getContinuityReferenceScene(project.scenes, scene.sortOrder);
@@ -1631,6 +1740,7 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
       {
         id: project.id,
         title: project.title,
+        conceptPrompt: project.conceptPrompt,
         visualStyle: project.visualStyle,
       },
       {
@@ -1651,7 +1761,7 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
     });
   }
 
-  return prisma.storyboardScene.update({
+  const updated = await prisma.storyboardScene.update({
     where: { id: sceneId },
     data: {
       prompt: nextPrompt,
@@ -1665,6 +1775,8 @@ export async function regenerateStoryboardScene(userId: string, projectId: strin
       generationTaskId: null,
     },
   });
+
+  return presentStoryboardScenePrompt(updated);
 }
 
 export async function generateStoryboardSceneVideo(
@@ -1693,10 +1805,20 @@ export async function generateStoryboardSceneVideo(
 
   const previousScene = getContinuityReferenceScene(project.scenes, scene.sortOrder);
   const selectedMusic = getSelectedMusicOption(project);
+  const promptBundle = resolveScenePromptBundle(
+    {
+      title: project.title,
+      conceptPrompt: project.conceptPrompt,
+      visualStyle: project.visualStyle,
+    },
+    scene,
+    previousScene?.previewImageUrl ?? null,
+  );
   const resolvedPreviewImageUrl = await ensureScenePreviewImage(
     {
       id: project.id,
       title: project.title,
+      conceptPrompt: project.conceptPrompt,
       visualStyle: project.visualStyle,
     },
     scene,
@@ -1713,7 +1835,11 @@ export async function generateStoryboardSceneVideo(
       scenes: [
         {
           sortOrder: scene.sortOrder,
-          prompt: scene.prompt,
+          prompt: promptBundle.video_prompt,
+          videoPrompt: promptBundle.video_prompt,
+          sharedContext: promptBundle.shared_context,
+          negativePrompt: promptBundle.negative_prompt,
+          continuityLine: scene.continuityLine,
           lyricLine: scene.lyricLine,
           previewImageUrl: resolvedPreviewImageUrl,
           firstFrameUrl:
@@ -1759,7 +1885,7 @@ export async function generateStoryboardSceneVideo(
       },
     });
 
-    return updated;
+    return presentStoryboardScenePrompt(updated);
   } catch (error) {
     await prisma.storyboardScene.update({
       where: { id: sceneId },
@@ -1791,7 +1917,7 @@ export async function addStoryboardScene(userId: string, projectId: string) {
   const endSec = startSec + 10;
   const sortOrder = lastScene ? lastScene.sortOrder + 1 : 0;
 
-  return prisma.storyboardScene.create({
+  const created = await prisma.storyboardScene.create({
     data: {
       projectId,
       sortOrder,
@@ -1799,12 +1925,29 @@ export async function addStoryboardScene(userId: string, projectId: string) {
       endSec,
       lyricLine: `${project.title} 新增段落`,
       continuityLine: "承接上一镜头情绪并推动故事进入下一幕，保持视觉主体与构图连续。",
-      prompt: `${project.visualStyle} 风格新增段落，承接上一镜头情绪并推动故事进入下一幕，单段时长不超过 10 秒。`,
+      prompt: serializeStoryboardPromptBundle(
+        buildFallbackScenePromptBundle(
+          {
+            title: project.title,
+            conceptPrompt: project.conceptPrompt,
+            visualStyle: project.visualStyle,
+          },
+          {
+            sortOrder,
+            lyricLine: `${project.title} 新增段落`,
+            prompt: `${project.visualStyle} 风格新增段落，承接上一镜头情绪并推动故事进入下一幕，单段时长不超过 10 秒。`,
+            continuityLine: "承接上一镜头情绪并推动故事进入下一幕，保持视觉主体与构图连续。",
+          },
+          lastScene?.previewImageUrl ?? null,
+        ),
+      ),
       previewImageUrl:
         lastScene?.previewImageUrl ?? MOCK_SCENE_IMAGES[sortOrder % MOCK_SCENE_IMAGES.length],
       status: "ready",
     },
   });
+
+  return presentStoryboardScenePrompt(created);
 }
 
 export async function deleteStoryboardScene(userId: string, projectId: string, sceneId: string) {
@@ -2263,7 +2406,7 @@ export async function createGenerationJob(userId: string, projectId: string) {
     return syncGenerationJobForUser(userId, projectId, existing.id);
   }
 
-  const currentProject = await getProjectForUser(userId, projectId);
+  const currentProject = await getProjectRecordForUser(userId, projectId);
   if (!currentProject) {
     throw new Error("PROJECT_NOT_FOUND");
   }
@@ -2304,21 +2447,37 @@ export async function createGenerationJob(userId: string, projectId: string) {
       conceptPrompt: hydratedProject.conceptPrompt,
       visualStyle: hydratedProject.visualStyle,
       musicStyle: hydratedProject.musicStyle,
-      scenes: hydratedProject.scenes.map((scene, index, scenes) => ({
-        sortOrder: scene.sortOrder,
-        prompt: scene.prompt,
-        lyricLine: scene.lyricLine,
-        previewImageUrl: scene.previewImageUrl,
-        firstFrameUrl:
-          index === 0
-            ? scene.previewImageUrl
-            : getContinuityReferenceScene(scenes, scene.sortOrder)?.previewImageUrl ??
-              scene.previewImageUrl,
-        referenceImageUrls: scenes
-          .slice(Math.max(0, index - 1), Math.min(scenes.length, index + 2))
-          .map((item) => item.previewImageUrl)
-          .filter((value): value is string => isRemoteReferenceAssetUrl(value)),
-      })),
+      scenes: hydratedProject.scenes.map((scene, index, scenes) => {
+        const promptBundle = resolveScenePromptBundle(
+          {
+            title: hydratedProject.title,
+            conceptPrompt: hydratedProject.conceptPrompt,
+            visualStyle: hydratedProject.visualStyle,
+          },
+          scene,
+          getContinuityReferenceScene(scenes, scene.sortOrder)?.previewImageUrl ?? null,
+        );
+
+        return {
+          sortOrder: scene.sortOrder,
+          prompt: promptBundle.video_prompt,
+          videoPrompt: promptBundle.video_prompt,
+          sharedContext: promptBundle.shared_context,
+          negativePrompt: promptBundle.negative_prompt,
+          continuityLine: scene.continuityLine,
+          lyricLine: scene.lyricLine,
+          previewImageUrl: scene.previewImageUrl,
+          firstFrameUrl:
+            index === 0
+              ? scene.previewImageUrl
+              : getContinuityReferenceScene(scenes, scene.sortOrder)?.previewImageUrl ??
+                scene.previewImageUrl,
+          referenceImageUrls: scenes
+            .slice(Math.max(0, index - 1), Math.min(scenes.length, index + 2))
+            .map((item) => item.previewImageUrl)
+            .filter((value): value is string => isRemoteReferenceAssetUrl(value)),
+        };
+      }),
       aspectRatio: "16:9",
       durationSec: Math.min(12, Math.max(4, selectedMusic?.durationSec ?? 8)),
       resolution: hydratedProject.exportResolution,
