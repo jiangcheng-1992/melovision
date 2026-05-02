@@ -35,6 +35,7 @@ const MOCK_SCENE_IMAGES = [
 
 const GENERATION_BOOT_MS = 4000;
 const GENERATION_SCENE_MS = 12000;
+const STORYBOARD_GENERATION_TIMEOUT_MS = 12000;
 
 type CreateProjectInput = {
   title: string;
@@ -718,20 +719,25 @@ async function buildStoryboardScenes(project: {
   const fallback = buildFallbackStoryboardScenes(project, lyrics, durationSec);
 
   try {
-    const storyboard = await generateStoryboard({
-      project: {
-        title: project.title,
-        concept: project.conceptPrompt,
-        visualStyle: project.visualStyle,
-        musicStyle: project.musicStyle || project.selectedMusic?.genre,
-        language: "zh-CN",
-        aspectRatio: project.aspectRatio ?? "16:9",
-      },
-      lyrics,
-      characterAnchor: inferCharacterAnchor(project),
-      worldAnchor: inferWorldAnchor(project),
-      llm: createStoryboardLlmClient(),
-    });
+    const storyboard = await Promise.race([
+      generateStoryboard({
+        project: {
+          title: project.title,
+          concept: project.conceptPrompt,
+          visualStyle: project.visualStyle,
+          musicStyle: project.musicStyle || project.selectedMusic?.genre,
+          language: "zh-CN",
+          aspectRatio: project.aspectRatio ?? "16:9",
+        },
+        lyrics,
+        characterAnchor: inferCharacterAnchor(project),
+        worldAnchor: inferWorldAnchor(project),
+        llm: createStoryboardLlmClient(),
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("STORYBOARD_GENERATION_TIMEOUT")), STORYBOARD_GENERATION_TIMEOUT_MS);
+      }),
+    ]);
 
     if (storyboard.scenes.length === 0) {
       return fallback;
@@ -1056,7 +1062,7 @@ async function hydrateStoryboardScenePreviews(project: NonNullable<Awaited<Retur
     return project;
   }
 
-  await Promise.allSettled(
+  void Promise.allSettled(
     candidates.map((scene) =>
       ensureScenePreviewImage(
         {
@@ -1071,7 +1077,7 @@ async function hydrateStoryboardScenePreviews(project: NonNullable<Awaited<Retur
     ),
   );
 
-  return getProjectRecordForUser(project.userId, project.id);
+  return project;
 }
 
 function buildSceneDoneMessage(scene: {

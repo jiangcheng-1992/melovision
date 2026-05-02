@@ -93,6 +93,16 @@ function isPlaceholderScenePreviewUrl(url?: string | null) {
   );
 }
 
+function hasPendingScenePreviews(scenes: Scene[]) {
+  return scenes.some(
+    (scene) => !scene.resultVideoUrl && isPlaceholderScenePreviewUrl(scene.previewImageUrl),
+  );
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function getSceneDisplayPreviewUrl(scenes: Scene[], targetScene?: Scene | null) {
   if (!targetScene) {
     return null;
@@ -247,15 +257,34 @@ export function WorkbenchStudio({
     setStoryboardLoadError(null);
 
     const loadStoryboard = async () => {
-      try {
-        const payload = await requestJson<{ scenes: Scene[] }>(`/api/projects/${projectId}/storyboard`);
-        if (cancelled) {
-          return;
-        }
+      const maxAttempts = 3;
 
-        setScenes(payload.scenes);
-        setSelectedSceneId(payload.scenes[0]?.id ?? "");
-        setActionMessage(payload.scenes.length > 0 ? "分镜已生成，正在为你加载工作台。" : "当前项目暂未生成分镜。");
+      try {
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          try {
+            const payload = await requestJson<{ scenes: Scene[] }>(`/api/projects/${projectId}/storyboard`);
+            if (cancelled) {
+              return;
+            }
+
+            setScenes(payload.scenes);
+            setSelectedSceneId(payload.scenes[0]?.id ?? "");
+            setActionMessage(
+              payload.scenes.length > 0 ? "分镜已生成，正在为你加载工作台。" : "当前项目暂未生成分镜。",
+            );
+            return;
+          } catch (error) {
+            if (cancelled) {
+              return;
+            }
+
+            if (attempt === maxAttempts) {
+              throw error;
+            }
+
+            await wait(attempt * 1200);
+          }
+        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -294,6 +323,23 @@ export function WorkbenchStudio({
 
     return () => window.clearInterval(timer);
   }, [projectId, scenes]);
+
+  useEffect(() => {
+    if (storyboardLoading || scenes.length === 0 || !hasPendingScenePreviews(scenes)) {
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      try {
+        const payload = await requestJson<{ scenes: Scene[] }>(`/api/projects/${projectId}/storyboard`);
+        setScenes(payload.scenes);
+      } catch {
+        // Ignore polling failures and keep the current UI state.
+      }
+    }, 8000);
+
+    return () => window.clearInterval(timer);
+  }, [projectId, scenes, storyboardLoading]);
 
   useEffect(() => {
     setVideoPlaying(false);

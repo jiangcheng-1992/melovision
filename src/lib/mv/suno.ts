@@ -6,7 +6,23 @@ const SUNO_MODEL = "V4_5ALL";
 const SUNO_POLL_ATTEMPTS = 12;
 const SUNO_POLL_INTERVAL_MS = 5000;
 const SUNO_TIMEOUT_MS = 20000;
-const FALLBACK_ARTWORK_URL = "https://placehold.co/512x512/14121f/e5e0f3?text=MeloVision";
+const FALLBACK_ARTWORK_URL =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#14121f"/>
+          <stop offset="100%" stop-color="#2b2836"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#bg)"/>
+      <circle cx="256" cy="214" r="74" fill="#03b5d3" fill-opacity="0.2"/>
+      <path d="M230 178v72l62-36-62-36z" fill="#4cd7f6"/>
+      <text x="256" y="330" text-anchor="middle" fill="#e5e0f3" font-size="34" font-family="Arial, sans-serif">MeloVision</text>
+      <text x="256" y="368" text-anchor="middle" fill="#958da1" font-size="18" font-family="Arial, sans-serif">Audio Cover</text>
+    </svg>
+  `);
 
 export type SunoGenerationInput = {
   title: string;
@@ -222,6 +238,28 @@ function firstNumber(...values: unknown[]) {
   return undefined;
 }
 
+function normalizeArtworkUrl(value: unknown) {
+  const resolved = firstString(value);
+  if (!resolved) {
+    return FALLBACK_ARTWORK_URL;
+  }
+
+  if (resolved.startsWith("data:image/")) {
+    return resolved;
+  }
+
+  try {
+    const parsed = new URL(resolved);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    // Ignore malformed external artwork URLs and fall back to a safe inline placeholder.
+  }
+
+  return FALLBACK_ARTWORK_URL;
+}
+
 function normalizeTags(value: unknown, fallback: string[]) {
   if (Array.isArray(value)) {
     const result = value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean);
@@ -381,7 +419,9 @@ function normalizeTrack(
     bpm: Math.round(firstNumber(track.bpm, track.tempo) || 120),
     genre,
     tags: tags.join(","),
-    artworkUrl: firstString(track.imageUrl, track.image_url, track.image, track.cover) || FALLBACK_ARTWORK_URL,
+    artworkUrl: normalizeArtworkUrl(
+      firstString(track.imageUrl, track.image_url, track.image, track.cover),
+    ),
     audioUrl: firstString(track.streamAudioUrl, track.stream_audio_url, track.audioUrl, track.audio_url),
     provider: "suno",
     providerRef:
