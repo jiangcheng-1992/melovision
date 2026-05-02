@@ -20,7 +20,8 @@
     "render:build": "pnpm rebuild better-sqlite3 && pnpm exec prisma generate && pnpm build",
     "render:start": "pnpm exec prisma migrate deploy && pnpm start",
     "worker": "tsx workers/index.ts",
-    "html2jsx": "node scripts/html2jsx.mjs"
+    "html2jsx": "node scripts/html2jsx.mjs",
+    "git:push:retry": "tsx scripts/retry-git-push-on-network.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
