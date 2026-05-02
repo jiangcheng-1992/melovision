@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { readCachedMusicOptionAsset } from "@/lib/mv/audio-cache";
 
+function toBinaryResponseBody(buffer: Buffer) {
+  return new Uint8Array(buffer);
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ projectId: string; fileName: string }> },
@@ -13,7 +17,7 @@ export async function GET(
     return NextResponse.json({ error: "AUDIO_ASSET_NOT_FOUND" }, { status: 404 });
   }
 
-  return new NextResponse(asset.buffer, {
+  return new NextResponse(toBinaryResponseBody(asset.buffer), {
     status: 200,
     headers: {
       "Content-Type": asset.contentType,

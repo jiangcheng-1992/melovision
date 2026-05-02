@@ -81,6 +81,10 @@ function buildMockAudioWav(seed: string, durationSec = 24) {
   return buffer;
 }
 
+function toBinaryResponseBody(buffer: Buffer) {
+  return new Uint8Array(buffer);
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ projectId: string; optionId: string }> },
@@ -120,7 +124,7 @@ export async function GET(
 
   if (option.provider === "suno_mock" || option.audioUrl.includes("mock-suno.local")) {
     const wav = buildMockAudioWav(option.providerRef || option.id);
-    return new NextResponse(wav, {
+    return new NextResponse(toBinaryResponseBody(wav), {
       status: 200,
       headers: {
         "Content-Type": "audio/wav",
@@ -169,7 +173,7 @@ export async function GET(
       );
     }
 
-    return new NextResponse(audioAsset.buffer, {
+    return new NextResponse(toBinaryResponseBody(audioAsset.buffer), {
       status: 200,
       headers: {
         "Content-Type": audioAsset.contentType || "audio/mpeg",

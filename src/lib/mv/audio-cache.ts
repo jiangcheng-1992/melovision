@@ -28,7 +28,7 @@ function parseSqliteFilePath(databaseUrl: string) {
     return filePath;
   }
 
-  return path.resolve(process.cwd(), filePath);
+  return path.resolve(/* turbopackIgnore: true */ process.cwd(), filePath);
 }
 
 function getMediaStorageRoot() {
@@ -44,7 +44,7 @@ function getMediaStorageRoot() {
     return path.join(path.dirname(sqlitePath), "media");
   }
 
-  return path.join(process.cwd(), ".cache", "media");
+  return path.join(/* turbopackIgnore: true */ process.cwd(), ".cache", "media");
 }
 
 function getPublicAppUrl() {
@@ -158,11 +158,12 @@ export async function cacheMusicOptionAudioAsset(input: {
   optionId: string;
   sourceUrl?: string | null;
 }) {
-  if (!isCacheableRemoteAudioUrl(input.sourceUrl)) {
+  const sourceUrl = input.sourceUrl?.trim();
+  if (!sourceUrl || !isCacheableRemoteAudioUrl(sourceUrl)) {
     return null;
   }
 
-  const fetched = await fetchRemoteAudioAsset(input.sourceUrl);
+  const fetched = await fetchRemoteAudioAsset(sourceUrl);
   if (!fetched.ok || fetched.buffer.byteLength === 0) {
     return null;
   }
