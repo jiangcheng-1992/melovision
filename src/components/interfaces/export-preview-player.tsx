@@ -11,6 +11,12 @@ type ExportPreviewPlayerProps = {
   imageUrl: string;
   videoUrl?: string | null;
   soundtrackUrl?: string | null;
+  subtitleCues?: Array<{
+    sceneId: string;
+    text: string;
+    startSec: number;
+    endSec: number;
+  }>;
 };
 
 function durationToSeconds(value: string) {
@@ -31,6 +37,7 @@ export function ExportPreviewPlayer({
   imageUrl,
   videoUrl,
   soundtrackUrl,
+  subtitleCues = [],
 }: ExportPreviewPlayerProps) {
   const totalSeconds = useMemo(() => durationToSeconds(durationLabel), [durationLabel]);
   const [playing, setPlaying] = useState(false);
@@ -43,6 +50,13 @@ export function ExportPreviewPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const progress = totalSeconds > 0 ? Math.min((currentSeconds / totalSeconds) * 100, 100) : 0;
+  const activeSubtitle = useMemo(
+    () =>
+      subtitleCues.find(
+        (cue) => currentSeconds >= Math.floor(cue.startSec) && currentSeconds < Math.ceil(cue.endSec),
+      ) ?? subtitleCues[0],
+    [currentSeconds, subtitleCues],
+  );
 
   useEffect(() => {
     const audio = soundtrackUrl ? new Audio(soundtrackUrl) : null;
@@ -152,9 +166,17 @@ export function ExportPreviewPlayer({
       </div>
 
       {captions ? (
-        <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-full bg-black/35 px-4 py-1 text-sm text-white backdrop-blur">
-          {playing ? "字幕已开启，预览播放中" : "字幕已开启，点击播放继续预览"}
-        </div>
+        activeSubtitle ? (
+          <div className="pointer-events-none absolute right-6 bottom-28 left-6 flex justify-center">
+            <div className="max-w-[82%] rounded-xl bg-black/45 px-4 py-2 text-center text-sm text-white backdrop-blur">
+              {activeSubtitle.text}
+            </div>
+          </div>
+        ) : (
+          <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-full bg-black/35 px-4 py-1 text-sm text-white backdrop-blur">
+            {playing ? "字幕已开启，预览播放中" : "字幕已开启，点击播放继续预览"}
+          </div>
+        )
       ) : null}
 
       {settingsOpen ? (

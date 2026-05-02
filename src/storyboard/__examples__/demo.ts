@@ -137,8 +137,22 @@ const mockLlm: LLMClient = {
     ];
 
     const picked = pickPlanByPrompt(userPrompt, responses);
+    const subtitleText = currentSubtitle(userPrompt);
+    const primaryCharacterId = picked.sceneId === "scene-4" ? "young-male-lead" : "young-male-lead";
     return schema.parse({
       ...picked,
+      subtitleText,
+      lyricIntent: picked.emotionalSubtext,
+      primaryCharacterId,
+      visibleCharacterIds: [primaryCharacterId],
+      allowCharacterChange: false,
+      characterChangeReason: undefined,
+      identityGuard: "固定同一男主外观、发型、服装和通勤气质，不允许无故换人。",
+      continuityChecklist: [
+        "男主脸部特征保持一致",
+        "通勤外套与耳机保持一致",
+        "城市场景和冷色光线自然承接",
+      ],
     });
   },
 };
@@ -159,6 +173,10 @@ function pickPlanByPrompt(userPrompt: string, responses: StoryboardPlan[]) {
   }
 
   return responses[0];
+}
+
+function currentSubtitle(userPrompt: string) {
+  return userPrompt.match(/- subtitleText:\s*(.+)/)?.[1]?.trim() || "当前歌词";
 }
 
 async function main() {

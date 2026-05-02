@@ -21,9 +21,11 @@ type VideoSceneInput = {
   prompt: string;
   videoPrompt?: string;
   sharedContext?: string;
+  identityLock?: string;
   negativePrompt?: string;
   continuityLine?: string | null;
   lyricLine: string;
+  subtitleText?: string;
   previewImageUrl?: string | null;
   firstFrameUrl?: string | null;
   lastFrameUrl?: string | null;
@@ -190,7 +192,9 @@ function buildVideoPrompt(input: VolcengineVideoGenerationInput) {
         [
           `Scene ${scene.sortOrder + 1}: ${scene.lyricLine}`,
           scene.sharedContext ? `共享上下文：${scene.sharedContext}` : null,
+          scene.identityLock ? `角色锁：${scene.identityLock}` : null,
           scene.continuityLine ? `承接关系：${scene.continuityLine}` : null,
+          scene.subtitleText ? `字幕对应歌词：${scene.subtitleText}` : null,
           `视频提示词：${scene.videoPrompt ?? scene.prompt}`,
           scene.negativePrompt ? `负向约束：${scene.negativePrompt}` : null,
         ]

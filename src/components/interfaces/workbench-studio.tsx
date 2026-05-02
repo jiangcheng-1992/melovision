@@ -35,8 +35,13 @@ type Scene = {
   startSec: number;
   endSec: number;
   lyricLine: string;
+  subtitleText?: string;
+  subtitleStartSec?: number;
+  subtitleEndSec?: number;
   continuityLine?: string | null;
   prompt: string;
+  primaryCharacterId?: string;
+  identityLock?: string;
   previewImageUrl?: string | null;
   resultVideoUrl?: string | null;
   generationTaskId?: string | null;
@@ -174,6 +179,10 @@ function formatSceneTimeRange(startSec: number, endSec: number) {
   };
 
   return `${formatTime(startSec)} - ${formatTime(endSec)}`;
+}
+
+function getSceneSubtitleText(scene?: Scene | null) {
+  return scene?.subtitleText?.trim() || scene?.lyricLine?.trim() || "";
 }
 
 export function WorkbenchStudio({
@@ -858,9 +867,23 @@ export function WorkbenchStudio({
                           "{scene.lyricLine}"
                         </div>
 
+                        {scene.primaryCharacterId ? (
+                          <div className="mb-3 flex flex-wrap gap-2 text-[11px] text-[#9ad7ff]">
+                            <span className="rounded-full border border-[#214258] bg-[#0c1a25] px-2 py-1">
+                              主角锁定：{scene.primaryCharacterId}
+                            </span>
+                          </div>
+                        ) : null}
+
                         {scene.continuityLine ? (
                           <div className="mb-4 rounded-lg border border-[#4a4455]/20 bg-[#14121f] px-3 py-2 text-xs text-[#958da1]">
                             连续性提示：{scene.continuityLine}
+                          </div>
+                        ) : null}
+
+                        {scene.identityLock ? (
+                          <div className="mb-4 rounded-lg border border-[#1c3345] bg-[#0d1822] px-3 py-2 text-xs text-[#9ad7ff]">
+                            角色一致性：{scene.identityLock}
                           </div>
                         ) : null}
 
@@ -990,6 +1013,13 @@ export function WorkbenchStudio({
                     />
                   )}
                   <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-[#14121f]/90 via-[#14121f]/20 to-transparent p-4">
+                    {getSceneSubtitleText(selectedScene) ? (
+                      <div className="mb-3 flex justify-center">
+                        <div className="max-w-[85%] rounded-lg bg-black/55 px-3 py-2 text-center text-sm font-medium text-white shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+                          {getSceneSubtitleText(selectedScene)}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="flex items-end justify-between">
                       <span className="rounded bg-[#363342]/80 px-2 py-1 font-mono text-xs text-[#4cd7f6] backdrop-blur-md">
                         {selectedScene?.status === "completed" ? "视频封面图" : selectedSceneStatus.label} / {formatSceneTimeRange(selectedScene?.startSec ?? 0, selectedScene?.endSec ?? 0)}
@@ -1083,6 +1113,11 @@ export function WorkbenchStudio({
                           />
                         )}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#14121f] to-transparent p-2">
+                          {getSceneSubtitleText(scene) ? (
+                            <div className="mb-1 line-clamp-2 rounded bg-black/45 px-1.5 py-1 text-[10px] text-white">
+                              {getSceneSubtitleText(scene)}
+                            </div>
+                          ) : null}
                           <div className="text-[10px] font-bold text-white">#{scene.sortOrder + 1}</div>
                           <div className="text-[10px] text-[#ccc3d8]">
                             {formatSceneTimeRange(scene.startSec, scene.endSec)}

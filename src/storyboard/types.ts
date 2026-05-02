@@ -29,6 +29,9 @@ export interface LyricsSegment {
   id: string;
   index: number;
   text: string;
+  subtitleText: string;
+  semanticFocus: string;
+  charCount: number;
   startSec: number;
   endSec: number;
   durationSec: number;
@@ -65,12 +68,19 @@ export interface StoryboardPlan {
   sceneId: string;
   index: number;
   lyricText: string;
+  subtitleText: string;
   startSec: number;
   endSec: number;
   durationSec: number;
+  lyricIntent: string;
   narrativePurpose: string;
   emotionalSubtext: string;
   subject: string;
+  primaryCharacterId: string;
+  visibleCharacterIds: string[];
+  allowCharacterChange: boolean;
+  characterChangeReason?: string;
+  identityGuard: string;
   subjectState: string;
   actionStart: string;
   actionEnd: string;
@@ -87,14 +97,20 @@ export interface StoryboardPlan {
   sceneChangeAllowed: boolean;
   transitionReason?: string;
   inheritedDimensions: InheritedDimension[];
+  continuityChecklist: string[];
   continuitySnapshot?: ContinuitySnapshot;
 }
 
 export interface PromptBundle {
   shared_context: string;
+  identity_lock: string;
   cover_prompt: string;
   video_prompt: string;
   negative_prompt: string;
+  subtitle_text: string;
+  subtitle_start_sec: number;
+  subtitle_end_sec: number;
+  primary_character_id: string;
 }
 
 export interface StoryboardScene {
@@ -114,6 +130,8 @@ export interface StoryboardOutput {
 export interface SegmenterOptions {
   maxSceneDurationSec?: number;
   minSceneDurationSec?: number;
+  maxCharsPerSegment?: number;
+  maxLinesPerSegment?: number;
   sceneChangeKeywords?: string[];
 }
 

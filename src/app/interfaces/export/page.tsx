@@ -9,7 +9,7 @@ import { ExportPreviewPlayer } from "@/components/interfaces/export-preview-play
 import { AppTopbar } from "@/components/site/app-topbar";
 import { requireCurrentUser } from "@/lib/auth/session";
 import { getCreditBadgeLabelForUser } from "@/lib/billing/service";
-import { getProjectForUser, formatMusicDuration } from "@/lib/mv/workflow";
+import { buildProjectSubtitleTrack, getProjectForUser, formatMusicDuration } from "@/lib/mv/workflow";
 
 export const metadata: Metadata = {
   title: "预览与导出 - MeloVision",
@@ -94,6 +94,7 @@ export default async function ExportPage({
 
   const selectedMusic = project.musicOptions.find((item) => item.id === project.selectedMusicOptionId);
   const duration = selectedMusic ? formatMusicDuration(selectedMusic.durationSec) : "3:12";
+  const subtitleCues = buildProjectSubtitleTrack(project);
   const tags = [
     selectedMusic?.genre || project.musicStyle,
     project.visualStyle,
@@ -157,6 +158,7 @@ export default async function ExportPage({
                   ? `/api/projects/${project.id}/music-options/${selectedMusic.id}/audio`
                   : undefined
               }
+              subtitleCues={subtitleCues}
               imageUrl={
                 project.coverImageUrl ||
                 selectedMusic?.artworkUrl ||

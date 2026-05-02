@@ -55,6 +55,21 @@ export function extractStoryboardVideoPrompt(rawPrompt?: string | null) {
   return rawPrompt?.trim() || "";
 }
 
+export function extractStoryboardPromptMetadata(rawPrompt?: string | null) {
+  const parsed = parseStoryboardPromptBundle(rawPrompt);
+  if (!parsed) {
+    return null;
+  }
+
+  return {
+    identityLock: parsed.identity_lock,
+    subtitleText: parsed.subtitle_text,
+    subtitleStartSec: parsed.subtitle_start_sec,
+    subtitleEndSec: parsed.subtitle_end_sec,
+    primaryCharacterId: parsed.primary_character_id,
+  };
+}
+
 export function updateStoryboardVideoPrompt(
   rawPrompt: string | null | undefined,
   nextVideoPrompt: string,

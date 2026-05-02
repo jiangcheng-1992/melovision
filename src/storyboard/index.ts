@@ -9,6 +9,7 @@ export * from "@/storyboard/lyricsSegmenter";
 export * from "@/storyboard/continuityEngine";
 export * from "@/storyboard/storyboardPlanner";
 export * from "@/storyboard/promptBuilder";
+export * from "@/storyboard/qualityGuard";
 
 /**
  * 按“两阶段生成”完成完整分镜数据：

@@ -1,6 +1,6 @@
 import type { ZodTypeAny } from "zod";
 
-import { generateStoryboard } from "@/storyboard";
+import { generateStoryboard, LyricsSegmenter, validateStoryboardOutput } from "@/storyboard";
 import type {
   CharacterAnchor,
   GenerateStoryboardInput,
@@ -14,6 +14,7 @@ import {
   isCacheableRemoteAudioUrl,
 } from "@/lib/mv/audio-cache";
 import {
+  extractStoryboardPromptMetadata,
   extractStoryboardVideoPrompt,
   parseStoryboardPromptBundle,
   serializeStoryboardPromptBundle,
@@ -36,6 +37,8 @@ const MOCK_SCENE_IMAGES = [
 const GENERATION_BOOT_MS = 4000;
 const GENERATION_SCENE_MS = 12000;
 const STORYBOARD_GENERATION_TIMEOUT_MS = 12000;
+const PRIMARY_SEGMENT_CHAR_LIMIT = 18;
+const RETRY_SEGMENT_CHAR_LIMIT = 14;
 
 type CreateProjectInput = {
   title: string;
@@ -164,9 +167,19 @@ async function cacheProjectMusicOptionAudios(
 }
 
 function presentStoryboardScenePrompt<T extends { prompt: string }>(scene: T): T {
+  const metadata = extractStoryboardPromptMetadata(scene.prompt);
   return {
     ...scene,
     prompt: extractStoryboardVideoPrompt(scene.prompt),
+    ...(metadata
+      ? {
+          subtitleText: metadata.subtitleText,
+          subtitleStartSec: metadata.subtitleStartSec,
+          subtitleEndSec: metadata.subtitleEndSec,
+          primaryCharacterId: metadata.primaryCharacterId,
+          identityLock: metadata.identityLock,
+        }
+      : {}),
   };
 }
 
@@ -198,6 +211,10 @@ function buildFallbackScenePromptBundle(project: {
   continuityLine?: string | null;
 }, continuityReferenceImageUrl?: string | null): PromptBundle {
   const videoPrompt = extractStoryboardVideoPrompt(scene.prompt);
+  const subtitleText = scene.lyricLine.replace(/\s*\/\s*/g, " ").trim();
+  const identityLock = continuityReferenceImageUrl
+    ? "沿用上一镜真实主角外观、发型、服装主色和空间朝向，禁止换脸或新增主要人物。"
+    : "首镜建立唯一主角外观、服装和空间基准，后续镜头全部沿用。";
   const coverPrompt = [
     `为 MV《${project.title}》生成第 ${scene.sortOrder + 1} 段分镜封面图。`,
     `整体风格：${project.visualStyle}`,
@@ -212,10 +229,15 @@ function buildFallbackScenePromptBundle(project: {
 
   return {
     shared_context: buildSceneSharedContext(project, scene),
+    identity_lock: identityLock,
     cover_prompt: coverPrompt,
     video_prompt: videoPrompt,
     negative_prompt:
       "text, typography, subtitles, watermark, logo, extra characters, duplicated people, malformed hands, broken limbs, fused fingers, deformed face, low consistency, sudden costume change, random location change, unrelated props, collage composition",
+    subtitle_text: subtitleText,
+    subtitle_start_sec: 0,
+    subtitle_end_sec: 0,
+    primary_character_id: "main-character",
   };
 }
 
@@ -719,27 +741,36 @@ async function buildStoryboardScenes(project: {
   const fallback = buildFallbackStoryboardScenes(project, lyrics, durationSec);
 
   try {
-    const storyboard = await Promise.race([
-      generateStoryboard({
-        project: {
-          title: project.title,
-          concept: project.conceptPrompt,
-          visualStyle: project.visualStyle,
-          musicStyle: project.musicStyle || project.selectedMusic?.genre,
-          language: "zh-CN",
-          aspectRatio: project.aspectRatio ?? "16:9",
-        },
+    let storyboard = await generateStoryboardWithTimeout({
+      project,
+      lyrics,
+      maxCharsPerSegment: PRIMARY_SEGMENT_CHAR_LIMIT,
+    });
+    let quality = validateStoryboardOutput(storyboard);
+
+    if (!quality.passed) {
+      console.warn("[storyboard] quality_retry", {
+        title: project.title,
+        issues: quality.issues,
+      });
+
+      storyboard = await generateStoryboardWithTimeout({
+        project,
         lyrics,
-        characterAnchor: inferCharacterAnchor(project),
-        worldAnchor: inferWorldAnchor(project),
-        llm: createStoryboardLlmClient(),
-      }),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("STORYBOARD_GENERATION_TIMEOUT")), STORYBOARD_GENERATION_TIMEOUT_MS);
-      }),
-    ]);
+        maxCharsPerSegment: RETRY_SEGMENT_CHAR_LIMIT,
+      });
+      quality = validateStoryboardOutput(storyboard);
+    }
 
     if (storyboard.scenes.length === 0) {
+      return fallback;
+    }
+
+    if (!quality.passed) {
+      console.warn("[storyboard] quality_fallback", {
+        title: project.title,
+        issues: quality.issues,
+      });
       return fallback;
     }
 
@@ -751,7 +782,7 @@ async function buildStoryboardScenes(project: {
         sortOrder: index,
         startSec,
         endSec,
-        lyricLine: scene.segment.text,
+        lyricLine: scene.segment.subtitleText,
         continuityLine: scene.plan.continuity_with_prev ?? null,
         prompt: serializeStoryboardPromptBundle(scene.prompts),
         previewImageUrl: null,
@@ -767,6 +798,45 @@ async function buildStoryboardScenes(project: {
   }
 }
 
+async function generateStoryboardWithTimeout(input: {
+  project: {
+    title: string;
+    conceptPrompt: string;
+    visualStyle: string;
+    musicStyle?: string;
+    aspectRatio?: string | null;
+    selectedMusic?: { genre?: string | null } | null;
+  };
+  lyrics: TimedLyricLine[];
+  maxCharsPerSegment: number;
+}) {
+  return Promise.race([
+    generateStoryboard({
+      project: {
+        title: input.project.title,
+        concept: input.project.conceptPrompt,
+        visualStyle: input.project.visualStyle,
+        musicStyle: input.project.musicStyle || input.project.selectedMusic?.genre || undefined,
+        language: "zh-CN",
+        aspectRatio: input.project.aspectRatio ?? "16:9",
+      },
+      lyrics: input.lyrics,
+      characterAnchor: inferCharacterAnchor(input.project),
+      worldAnchor: inferWorldAnchor(input.project),
+      llm: createStoryboardLlmClient(),
+      segmenterOptions: {
+        maxSceneDurationSec: 8,
+        minSceneDurationSec: 2.5,
+        maxCharsPerSegment: input.maxCharsPerSegment,
+        maxLinesPerSegment: 2,
+      },
+    }),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("STORYBOARD_GENERATION_TIMEOUT")), STORYBOARD_GENERATION_TIMEOUT_MS);
+    }),
+  ]);
+}
+
 function buildFallbackStoryboardScenes(
   project: {
     title: string;
@@ -778,13 +848,14 @@ function buildFallbackStoryboardScenes(
 ): StoryboardSceneDraft[] {
   const safeLyrics =
     lyrics.length > 0 ? lyrics : buildTimedLyricsForStoryboard(project.conceptPrompt, durationSec);
+  const segments = new LyricsSegmenter().segment(safeLyrics);
 
-  return safeLyrics.map((line, index) => {
+  return segments.map((line, index) => {
     const previousLyric =
-      index > 0 ? safeLyrics[index - 1]?.text ?? `${project.title} 开场氛围建立` : `${project.title} 开场氛围建立`;
+      index > 0 ? segments[index - 1]?.subtitleText ?? `${project.title} 开场氛围建立` : `${project.title} 开场氛围建立`;
     const nextLyric =
-      index < safeLyrics.length - 1
-        ? safeLyrics[index + 1]?.text ?? `${project.title} 情绪延续到下一段`
+      index < segments.length - 1
+        ? segments[index + 1]?.subtitleText ?? `${project.title} 情绪延续到下一段`
         : `${project.title} 情绪延续到下一段`;
     const continuityLine =
       index === 0
@@ -795,14 +866,14 @@ function buildFallbackStoryboardScenes(
       sortOrder: index,
       startSec: toSceneStartSecond(line.startSec),
       endSec: toSceneEndSecond(line.endSec, durationSec, toSceneStartSecond(line.startSec)),
-      lyricLine: line.text,
+      lyricLine: line.subtitleText,
       continuityLine,
       prompt: serializeStoryboardPromptBundle(
         buildFallbackScenePromptBundle(
           project,
           {
             sortOrder: index,
-            lyricLine: line.text,
+            lyricLine: line.subtitleText,
             prompt: `${project.visualStyle} 风格的 MV 分镜 ${index + 1}，围绕“${project.title}”展开，画面关键词：${line.text}。${continuityLine ?? "建立主角与场景的核心氛围。"} 单段时长控制在 10 秒内，整体保持电影感、统一主角设定、镜头语言清晰。`,
             continuityLine,
           },
@@ -912,14 +983,25 @@ function createStoryboardLlmClient(): GenerateStoryboardInput["llm"] {
 function buildFallbackPlanFromPrompt(userPrompt: string) {
   const lyricText =
     userPrompt.match(/- text:\s*(.+)/)?.[1]?.trim() || "当前歌词片段";
+  const subtitleText =
+    userPrompt.match(/- subtitleText:\s*(.+)/)?.[1]?.trim() || lyricText.replace(/\s*\/\s*/g, " ");
   const durationSec = Number(userPrompt.match(/- durationSec:\s*([0-9.]+)/)?.[1] ?? 8);
   const allowSceneBreak = userPrompt.includes("允许换场");
+  const primaryCharacterId =
+    userPrompt.match(/主角ID\s+([^\s；。]+)/)?.[1]?.trim() || "main-character";
   const continuityPrefix = userPrompt.match(/承接前缀：(.+)/)?.[1]?.trim();
 
   return {
+    subtitleText,
+    lyricIntent: `围绕“${subtitleText}”表达当前歌词段真正的情绪推进、关系变化或叙事意图。`,
     narrativePurpose: `围绕“${lyricText}”建立当前镜头的叙事推进，并服务整体 MV 情绪起伏。`,
     emotionalSubtext: `表达“${lyricText}”背后的潜台词与情绪流动，而非字面翻译。`,
     subject: "核心主角",
+    primaryCharacterId,
+    visibleCharacterIds: [primaryCharacterId],
+    allowCharacterChange: false,
+    characterChangeReason: undefined,
+    identityGuard: "固定同一主角外观、发型、服装与空间方向，禁止无故换人。",
     subjectState: "延续上一镜的情绪与动作惯性，保持视觉主体稳定。",
     actionStart: `从“${lyricText}”对应的情绪起点进入动作。`,
     actionEnd: `在 ${Math.max(1, Math.round(durationSec))} 秒内完成当前情绪段落的动作收束。`,
@@ -938,6 +1020,12 @@ function buildFallbackPlanFromPrompt(userPrompt: string) {
     inheritedDimensions: allowSceneBreak
       ? ["character_appearance", "wardrobe", "mood_tone"]
       : ["character_appearance", "wardrobe", "setting", "lighting", "mood_tone"],
+    continuityChecklist: [
+      "主角外观保持一致",
+      "服装和主色保持一致",
+      "空间与机位自然承接",
+      "光线与情绪基调延续",
+    ],
   };
 }
 
@@ -1191,10 +1279,15 @@ function buildExportPackage(project: Awaited<ReturnType<typeof getProjectForUser
       startSec: scene.startSec,
       endSec: scene.endSec,
       lyricLine: scene.lyricLine,
+      subtitleText: scene.subtitleText ?? scene.lyricLine,
+      subtitleStartSec: scene.subtitleStartSec ?? scene.startSec,
+      subtitleEndSec: scene.subtitleEndSec ?? scene.endSec,
+      primaryCharacterId: scene.primaryCharacterId ?? "main-character",
       prompt: scene.prompt,
       previewImageUrl: scene.previewImageUrl,
       status: scene.status,
     })),
+    subtitleTrack: buildProjectSubtitleTrack(project),
     generationLogs: project.generationLogs.map((log) => ({
       id: log.id,
       level: log.level,
@@ -1202,6 +1295,23 @@ function buildExportPackage(project: Awaited<ReturnType<typeof getProjectForUser
       createdAt: log.createdAt.toISOString(),
     })),
   };
+}
+
+export function buildProjectSubtitleTrack(
+  project: Awaited<ReturnType<typeof getProjectForUser>>,
+) {
+  if (!project) {
+    return [];
+  }
+
+  return project.scenes.map((scene) => ({
+    sceneId: scene.id,
+    order: scene.sortOrder,
+    text: scene.subtitleText ?? scene.lyricLine,
+    startSec: scene.subtitleStartSec ?? scene.startSec,
+    endSec: scene.subtitleEndSec ?? scene.endSec,
+    primaryCharacterId: scene.primaryCharacterId ?? "main-character",
+  }));
 }
 
 export async function createProjectWithMockMusic(userId: string, input: CreateProjectInput) {
@@ -1900,9 +2010,11 @@ export async function generateStoryboardSceneVideo(
           prompt: promptBundle.video_prompt,
           videoPrompt: promptBundle.video_prompt,
           sharedContext: promptBundle.shared_context,
+          identityLock: promptBundle.identity_lock,
           negativePrompt: promptBundle.negative_prompt,
           continuityLine: scene.continuityLine,
           lyricLine: scene.lyricLine,
+          subtitleText: promptBundle.subtitle_text,
           previewImageUrl: resolvedPreviewImageUrl,
           firstFrameUrl:
             previousScene?.previewImageUrl && isRemoteReferenceAssetUrl(previousScene.previewImageUrl)
@@ -2525,9 +2637,11 @@ export async function createGenerationJob(userId: string, projectId: string) {
           prompt: promptBundle.video_prompt,
           videoPrompt: promptBundle.video_prompt,
           sharedContext: promptBundle.shared_context,
+          identityLock: promptBundle.identity_lock,
           negativePrompt: promptBundle.negative_prompt,
           continuityLine: scene.continuityLine,
           lyricLine: scene.lyricLine,
+          subtitleText: promptBundle.subtitle_text,
           previewImageUrl: scene.previewImageUrl,
           firstFrameUrl:
             index === 0

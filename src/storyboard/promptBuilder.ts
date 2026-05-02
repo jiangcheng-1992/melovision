@@ -30,11 +30,14 @@ export class PromptBuilder {
     worldAnchor: WorldAnchor;
   }): PromptBundle {
     const sharedContext = buildSharedContext(input);
+    const identityLock = buildIdentityLock(input);
 
     const coverPrompt = [
       COVER_PROMPT_TEMPLATE,
       sharedContext,
+      `角色锁：${identityLock}`,
       `当前镜头封面定格：${input.plan.coverMoment}。`,
+      `封面必须只服务当前歌词段：${input.plan.subtitleText}。`,
       `主体：${input.plan.subject}；状态：${input.plan.subjectState}。`,
       `场景：${input.plan.setting}；时间：${input.plan.timeOfDay}；光线：${input.plan.lighting}。`,
       `情绪基调：${input.plan.moodTone}。`,
@@ -48,12 +51,16 @@ export class PromptBuilder {
     const videoPrompt = [
       VIDEO_PROMPT_TEMPLATE,
       sharedContext,
+      `角色锁：${identityLock}`,
       input.plan.continuity_with_prev ? `承接上一镜：${input.plan.continuity_with_prev}` : null,
+      `当前字幕对应歌词：${input.plan.subtitleText}。`,
+      `歌词意图：${input.plan.lyricIntent}。`,
       `动作起点：${input.plan.actionStart}。`,
       `动作终点：${input.plan.actionEnd}。`,
       `镜头语言：${input.plan.shotType}，镜头运动为 ${input.plan.cameraMovement}。`,
       `这一镜的叙事目的：${input.plan.narrativePurpose}。`,
       `情绪潜台词：${input.plan.emotionalSubtext}。`,
+      `连续性检查：${input.plan.continuityChecklist.join("；")}。`,
       `主体状态必须从起点自然过渡到终点，不允许突然换人、换衣服、换场景。`,
     ]
       .filter(Boolean)
@@ -68,9 +75,14 @@ export class PromptBuilder {
 
     return {
       shared_context: sharedContext,
+      identity_lock: identityLock,
       cover_prompt: coverPrompt,
       video_prompt: videoPrompt,
       negative_prompt: negativePrompt,
+      subtitle_text: input.plan.subtitleText,
+      subtitle_start_sec: input.plan.startSec,
+      subtitle_end_sec: input.plan.endSec,
+      primary_character_id: input.plan.primaryCharacterId,
     };
   }
 }
@@ -89,8 +101,26 @@ function buildSharedContext(input: {
 角色锚点：${input.characterAnchor.identity}；外观 ${input.characterAnchor.appearance}；服装 ${input.characterAnchor.wardrobe}
 世界锚点：场景 ${input.worldAnchor.setting}；时间 ${input.worldAnchor.timeOfDay}；光线 ${input.worldAnchor.lighting}；氛围 ${input.worldAnchor.atmosphere}
 当前歌词：${input.plan.lyricText}
+当前字幕：${input.plan.subtitleText}
+歌词意图：${input.plan.lyricIntent}
 当前镜头摘要：${input.plan.continuitySummary}
 连续继承项：${input.plan.inheritedDimensions.join(", ")}
 统一主体：${input.plan.subject}
 统一情绪：${input.plan.moodTone}`;
+}
+
+function buildIdentityLock(input: {
+  plan: StoryboardPlan;
+  characterAnchor: CharacterAnchor;
+}) {
+  return [
+    `主角ID=${input.plan.primaryCharacterId}`,
+    `主体=${input.plan.subject}`,
+    `外观=${input.characterAnchor.appearance}`,
+    `服装=${input.characterAnchor.wardrobe}`,
+    `身份约束=${input.plan.identityGuard}`,
+    input.plan.allowCharacterChange
+      ? `允许换人，原因=${input.plan.characterChangeReason ?? "歌词明确指定新人物"}`
+      : "不允许新增主要人物或更换主角脸部特征",
+  ].join("；");
 }
