@@ -290,13 +290,20 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
     <>
       {isAdvancing ? (
         <>
-          <div className="fixed top-0 right-0 left-0 z-40 h-1 bg-[#14121f]/80">
+          <div
+            data-testid="music-next-step-progress-track"
+            className="fixed top-0 right-0 left-0 z-40 h-1 bg-[#14121f]/80"
+          >
             <div
+              data-testid="music-next-step-progress-bar"
               className="h-full bg-gradient-to-r from-[#7C3AED] to-[#03B5D3] transition-[width] duration-200 ease-out"
               style={{ width: `${advanceProgress}%` }}
             />
           </div>
-          <div className="fixed top-20 right-6 z-40 rounded-xl border border-[#4cd7f6]/20 bg-[#0b1621]/90 px-4 py-3 text-sm text-[#b6eeff] shadow-[0_0_20px_rgba(3,181,211,0.15)] backdrop-blur">
+          <div
+            data-testid="music-next-step-loading-message"
+            className="fixed top-20 right-6 z-40 rounded-xl border border-[#4cd7f6]/20 bg-[#0b1621]/90 px-4 py-3 text-sm text-[#b6eeff] shadow-[0_0_20px_rgba(3,181,211,0.15)] backdrop-blur"
+          >
             正在进入分镜阶段，已为你加载分镜工作台...
           </div>
         </>
@@ -534,6 +541,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
             type="button"
             onClick={handleContinueToWorkbench}
             disabled={isAdvancing}
+            data-testid="music-next-step-button"
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#03B5D3] px-8 py-3 font-headline text-xs font-bold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all hover:scale-[1.02] hover:opacity-90 hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] active:scale-95 disabled:cursor-wait disabled:opacity-90 disabled:hover:scale-100"
           >
             {isAdvancing ? "正在加载分镜..." : "继续下一步"}
