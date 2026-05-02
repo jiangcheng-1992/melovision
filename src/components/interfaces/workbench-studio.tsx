@@ -203,6 +203,8 @@ export function WorkbenchStudio({
   const [videoError, setVideoError] = useState<string | null>(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [storyboardLoading, setStoryboardLoading] = useState(project.scenes.length === 0);
+  const [storyboardLoadError, setStoryboardLoadError] = useState<string | null>(null);
   const soundtrackRef = useRef<HTMLAudioElement | null>(null);
 
   const selectedScene = useMemo(
@@ -232,6 +234,49 @@ export function WorkbenchStudio({
   const soundtrackUrl = selectedMusic
     ? `/api/projects/${projectId}/music-options/${selectedMusic.id}/audio`
     : null;
+
+  useEffect(() => {
+    if (scenes.length > 0) {
+      setStoryboardLoading(false);
+      setStoryboardLoadError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setStoryboardLoading(true);
+    setStoryboardLoadError(null);
+
+    const loadStoryboard = async () => {
+      try {
+        const payload = await requestJson<{ scenes: Scene[] }>(`/api/projects/${projectId}/storyboard`);
+        if (cancelled) {
+          return;
+        }
+
+        setScenes(payload.scenes);
+        setSelectedSceneId(payload.scenes[0]?.id ?? "");
+        setActionMessage(payload.scenes.length > 0 ? "分镜已生成，正在为你加载工作台。" : "当前项目暂未生成分镜。");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : "分镜加载失败";
+        setStoryboardLoadError(message);
+        setActionMessage(`分镜加载失败：${message}`);
+      } finally {
+        if (!cancelled) {
+          setStoryboardLoading(false);
+        }
+      }
+    };
+
+    void loadStoryboard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, scenes.length]);
 
   useEffect(() => {
     if (!scenes.some((scene) => scene.status === "queued" || scene.status === "processing")) {
@@ -655,11 +700,29 @@ export function WorkbenchStudio({
                 您的 MV 分镜
               </h1>
               <span className="rounded-full border border-[#4a4455]/20 bg-[#2b2836] px-3 py-1 text-xs font-medium text-[#ccc3d8]">
-                自动生成完成
+                {storyboardLoading ? "正在生成分镜" : scenes.length > 0 ? "自动生成完成" : "等待生成分镜"}
               </span>
             </div>
 
             <div className="flex flex-col gap-6">
+              {storyboardLoading ? (
+                <div className="rounded-2xl border border-[#4cd7f6]/20 bg-[#062230]/40 p-5 text-sm text-[#b6eeff]">
+                  正在根据歌词、角色锚点和连续性规则生成分镜，请稍候...
+                </div>
+              ) : null}
+
+              {!storyboardLoading && storyboardLoadError ? (
+                <div className="rounded-2xl border border-[#ffb4ab]/20 bg-[#93000a]/10 p-5 text-sm text-[#ffd7d1]">
+                  分镜加载失败：{storyboardLoadError}
+                </div>
+              ) : null}
+
+              {!storyboardLoading && scenes.length === 0 ? (
+                <div className="rounded-2xl border border-[#4a4455]/20 bg-[#201e2c] p-6 text-sm text-[#ccc3d8]">
+                  当前还没有可用分镜，你可以稍后刷新重试，或点击下方按钮手动新增一个场景。
+                </div>
+              ) : null}
+
               {scenes.map((scene, index) => {
                 const isActive = scene.id === selectedScene?.id;
                 const sceneStatus = getSceneStatusMeta(scene.status);

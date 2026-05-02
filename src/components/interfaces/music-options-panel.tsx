@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Download, Pause, Play, RefreshCw } from "lucide-react";
 
@@ -73,6 +74,7 @@ function getLyricLines(option: MusicOption) {
 }
 
 export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps) {
+  const router = useRouter();
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
@@ -80,6 +82,8 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
   const [activeOptionId, setActiveOptionId] = useState<string | null>(options[0]?.id ?? null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const [advanceProgress, setAdvanceProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeLyricLineRef = useRef<HTMLDivElement | null>(null);
 
@@ -146,6 +150,27 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       behavior: "smooth",
     });
   }, [activeLyricIndex]);
+
+  useEffect(() => {
+    if (!isAdvancing) {
+      setAdvanceProgress(0);
+      return;
+    }
+
+    setAdvanceProgress(12);
+    const timer = window.setInterval(() => {
+      setAdvanceProgress((current) => {
+        if (current >= 90) {
+          return current;
+        }
+
+        const next = current + (current < 45 ? 14 : current < 70 ? 8 : 4);
+        return Math.min(90, next);
+      });
+    }, 180);
+
+    return () => window.clearInterval(timer);
+  }, [isAdvancing]);
 
   async function handlePreview(option: MusicOption) {
     const audio = audioRef.current;
@@ -249,8 +274,34 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
     setDuration(getDisplayDuration(audio.duration, activeOption.durationSec));
   }
 
+  function handleContinueToWorkbench() {
+    if (isAdvancing) {
+      return;
+    }
+
+    setPreviewError(null);
+    setExportError(null);
+    setIsAdvancing(true);
+    setAdvanceProgress(18);
+    router.push(`/interfaces/workbench?projectId=${projectId}`);
+  }
+
   return (
     <>
+      {isAdvancing ? (
+        <>
+          <div className="fixed top-0 right-0 left-0 z-40 h-1 bg-[#14121f]/80">
+            <div
+              className="h-full bg-gradient-to-r from-[#7C3AED] to-[#03B5D3] transition-[width] duration-200 ease-out"
+              style={{ width: `${advanceProgress}%` }}
+            />
+          </div>
+          <div className="fixed top-20 right-6 z-40 rounded-xl border border-[#4cd7f6]/20 bg-[#0b1621]/90 px-4 py-3 text-sm text-[#b6eeff] shadow-[0_0_20px_rgba(3,181,211,0.15)] backdrop-blur">
+            正在进入分镜阶段，已为你加载分镜工作台...
+          </div>
+        </>
+      ) : null}
+
       {previewError ? (
         <div className="mb-5 rounded-lg border border-[#ffb4ab]/20 bg-[#93000a]/10 p-4 text-sm text-[#ffd7d1]">
           {previewError}
@@ -479,13 +530,15 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
             返回修改创意
           </Link>
 
-          <Link
-            href={`/interfaces/workbench?projectId=${projectId}`}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#03B5D3] px-8 py-3 font-headline text-xs font-bold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all hover:scale-[1.02] hover:opacity-90 hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] active:scale-95"
+          <button
+            type="button"
+            onClick={handleContinueToWorkbench}
+            disabled={isAdvancing}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#03B5D3] px-8 py-3 font-headline text-xs font-bold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all hover:scale-[1.02] hover:opacity-90 hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] active:scale-95 disabled:cursor-wait disabled:opacity-90 disabled:hover:scale-100"
           >
-            继续下一步
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+            {isAdvancing ? "正在加载分镜..." : "继续下一步"}
+            <ArrowRight className={`h-4 w-4 ${isAdvancing ? "animate-pulse" : ""}`} />
+          </button>
         </div>
       </div>
     </>

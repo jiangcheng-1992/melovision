@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   addStoryboardScene,
+  ensureStoryboardScenes,
   getStoryboardStateForUser,
 } from "@/lib/mv/workflow";
 
@@ -18,6 +19,7 @@ export async function GET(
   const { projectId } = await params;
 
   try {
+    await ensureStoryboardScenes(user.id, projectId);
     const storyboard = await getStoryboardStateForUser(user.id, projectId);
     return NextResponse.json(storyboard);
   } catch (error) {
