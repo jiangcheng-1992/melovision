@@ -400,6 +400,70 @@ export async function optimizeStoryboardPromptWithVolcengine(input: {
   return content;
 }
 
+export async function generateSongLyricsWithVolcengine(input: {
+  title: string;
+  conceptPrompt: string;
+  musicStyle: string;
+  visualStyle?: string;
+}) {
+  if (!isVolcengineEnabled()) {
+    return null;
+  }
+
+  const payload = {
+    model: getVolcengineChatModel(),
+    messages: [
+      {
+        role: "system",
+        content: [
+          "你是专业中文作词人。",
+          "你的任务是根据歌曲标题、歌曲主题描述和音乐风格，直接写出可演唱的中文歌词。",
+          "只输出歌词正文，不要解释，不要分点，不要 markdown，不要输出标题。",
+          "这不是 MV 分镜提示词，也不是视频画面描述，不要输出镜头、运镜、场景调度、提示词格式。",
+        ].join(""),
+      },
+      {
+        role: "user",
+        content: [
+          `歌曲标题：${input.title}`,
+          `歌曲主题描述：${input.conceptPrompt}`,
+          `音乐风格：${input.musicStyle}`,
+          input.visualStyle ? `补充视觉气质参考：${input.visualStyle}` : null,
+          "要求：输出 8 到 12 行中文歌词；具有可唱性、押韵感和情绪推进；内容要围绕标题和主题展开；禁止输出解释性文字。",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ],
+  };
+
+  const startedAt = nowMs();
+  logVolcengine("lyrics_generation_start", {
+    model: payload.model,
+    title: input.title,
+    musicStyle: input.musicStyle,
+  });
+
+  const response = await volcengineFetch("/chat/completions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const content = firstString(response?.choices?.[0]?.message?.content);
+  logVolcengine("lyrics_generation_complete", {
+    model: payload.model,
+    totalMs: nowMs() - startedAt,
+    hasContent: Boolean(content),
+    title: input.title,
+  });
+
+  if (!content) {
+    throw new Error("VOLCENGINE_LYRICS_CONTENT_MISSING");
+  }
+
+  return content;
+}
+
 export async function invokeJsonWithVolcengine(input: {
   systemPrompt: string;
   userPrompt: string;

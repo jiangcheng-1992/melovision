@@ -1,5 +1,7 @@
+import type { z } from "zod";
 import { generateStoryboard, validateStoryboardOutput } from "@/storyboard";
 import { prisma } from "@/lib/prisma";
+import type { LLMClient } from "@/storyboard/types";
 
 type ProjectRecord = {
   id: string;
@@ -90,6 +92,53 @@ async function main() {
     return;
   }
 
+  const mockLlm: LLMClient = {
+    async invoke<TSchema extends z.ZodTypeAny>(
+      _systemPrompt: string,
+      userPrompt: string,
+      schema: TSchema,
+    ): Promise<z.infer<TSchema>> {
+      const subtitleText =
+        userPrompt.match(/- subtitleText:\s*(.+)/)?.[1]?.trim() || "当前歌词";
+      const allowSceneBreak = userPrompt.includes("允许换场");
+      return schema.parse({
+        subtitleText,
+        lyricIntent: `围绕“${subtitleText}”表达当前歌词段的情绪推进与叙事重点。`,
+        narrativePurpose: `围绕“${subtitleText}”建立当前镜头叙事推进。`,
+        emotionalSubtext: `表达“${subtitleText}”背后的潜台词与情绪流动。`,
+        subject: "核心主角",
+        primaryCharacterId: "main-character",
+        visibleCharacterIds: ["main-character"],
+        allowCharacterChange: false,
+        characterChangeReason: undefined,
+        identityGuard: "固定同一主角外观、发型、服装和空间方向，禁止无故换人。",
+        subjectState: "延续上一镜的情绪与动作惯性，保持视觉主体稳定。",
+        actionStart: `从“${subtitleText}”对应的情绪起点进入动作。`,
+        actionEnd: `在当前镜头内完成该歌词段的动作收束。`,
+        setting: allowSceneBreak ? "根据歌词允许自然过渡到新空间" : "延续上一镜主场景",
+        timeOfDay: "按当前歌词情绪自然承接",
+        lighting: "保持统一光影与主体辨识度",
+        moodTone: "电影感、情绪连贯、主体明确",
+        shotType: "中近景到中景",
+        cameraMovement: "轻推、跟拍或平移，避免突兀跳动",
+        visualFocus: `${subtitleText} 对应的主体神态、动作和空间关系`,
+        coverMoment: `定格“${subtitleText}”中最能代表情绪推进的一瞬`,
+        continuitySummary: "承接上一镜的人物、情绪和空间关系，继续推动叙事。",
+        continuity_with_prev: "承接上一镜的主体状态与空间方向，平滑过渡到当前分镜。",
+        sceneChangeAllowed: allowSceneBreak,
+        transitionReason: allowSceneBreak ? "歌词中存在明确换场信号。" : undefined,
+        inheritedDimensions: allowSceneBreak
+          ? ["character_appearance", "wardrobe", "mood_tone"]
+          : ["character_appearance", "wardrobe", "setting", "lighting", "mood_tone"],
+        continuityChecklist: [
+          "主角外观保持一致",
+          "服装和主色保持一致",
+          "空间与机位自然承接",
+        ],
+      });
+    },
+  };
+
   const storyboard = await generateStoryboard({
     project: {
       title: target.title,
@@ -102,48 +151,7 @@ async function main() {
     lyrics: buildTimedLyrics(target.customLyrics),
     characterAnchor: inferCharacterAnchor(target),
     worldAnchor: inferWorldAnchor(target),
-    llm: {
-      async invoke(_systemPrompt, userPrompt, schema) {
-        const subtitleText =
-          userPrompt.match(/- subtitleText:\s*(.+)/)?.[1]?.trim() || "当前歌词";
-        const allowSceneBreak = userPrompt.includes("允许换场");
-        return schema.parse({
-          subtitleText,
-          lyricIntent: `围绕“${subtitleText}”表达当前歌词段的情绪推进与叙事重点。`,
-          narrativePurpose: `围绕“${subtitleText}”建立当前镜头叙事推进。`,
-          emotionalSubtext: `表达“${subtitleText}”背后的潜台词与情绪流动。`,
-          subject: "核心主角",
-          primaryCharacterId: "main-character",
-          visibleCharacterIds: ["main-character"],
-          allowCharacterChange: false,
-          characterChangeReason: undefined,
-          identityGuard: "固定同一主角外观、发型、服装和空间方向，禁止无故换人。",
-          subjectState: "延续上一镜的情绪与动作惯性，保持视觉主体稳定。",
-          actionStart: `从“${subtitleText}”对应的情绪起点进入动作。`,
-          actionEnd: `在当前镜头内完成该歌词段的动作收束。`,
-          setting: allowSceneBreak ? "根据歌词允许自然过渡到新空间" : "延续上一镜主场景",
-          timeOfDay: "按当前歌词情绪自然承接",
-          lighting: "保持统一光影与主体辨识度",
-          moodTone: "电影感、情绪连贯、主体明确",
-          shotType: "中近景到中景",
-          cameraMovement: "轻推、跟拍或平移，避免突兀跳动",
-          visualFocus: `${subtitleText} 对应的主体神态、动作和空间关系`,
-          coverMoment: `定格“${subtitleText}”中最能代表情绪推进的一瞬`,
-          continuitySummary: "承接上一镜的人物、情绪和空间关系，继续推动叙事。",
-          continuity_with_prev: "承接上一镜的主体状态与空间方向，平滑过渡到当前分镜。",
-          sceneChangeAllowed: allowSceneBreak,
-          transitionReason: allowSceneBreak ? "歌词中存在明确换场信号。" : undefined,
-          inheritedDimensions: allowSceneBreak
-            ? ["character_appearance", "wardrobe", "mood_tone"]
-            : ["character_appearance", "wardrobe", "setting", "lighting", "mood_tone"],
-          continuityChecklist: [
-            "主角外观保持一致",
-            "服装和主色保持一致",
-            "空间与机位自然承接",
-          ],
-        });
-      },
-    },
+    llm: mockLlm,
     segmenterOptions: {
       maxSceneDurationSec: 8,
       minSceneDurationSec: 2.5,

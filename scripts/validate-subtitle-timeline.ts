@@ -1,4 +1,6 @@
+import type { z } from "zod";
 import { generateStoryboard, validateStoryboardOutput } from "@/storyboard";
+import type { LLMClient } from "@/storyboard/types";
 
 const demoLyrics = [
   { text: "地铁门关上以后 你还站在原地看着我", startSec: 0, endSec: 5.2 },
@@ -7,8 +9,12 @@ const demoLyrics = [
   { text: "多年后 雨停了 城市仍记得我们的轮廓", startSec: 15.6, endSec: 23.8 },
 ];
 
-const mockLlm = {
-  async invoke(_systemPrompt: string, userPrompt: string, schema: { parse: (value: unknown) => unknown }) {
+const mockLlm: LLMClient = {
+  async invoke<TSchema extends z.ZodTypeAny>(
+    _systemPrompt: string,
+    userPrompt: string,
+    schema: TSchema,
+  ): Promise<z.infer<TSchema>> {
     const subtitleText =
       userPrompt.match(/- subtitleText:\s*(.+)/)?.[1]?.trim() || "当前歌词";
     const text = userPrompt.match(/- text:\s*(.+)/)?.[1]?.trim() || subtitleText;

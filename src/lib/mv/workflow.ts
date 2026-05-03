@@ -570,20 +570,12 @@ async function generateLyricsForSong(input: {
   musicStyle: string;
 }) {
   try {
-    const { optimizeStoryboardPromptWithVolcengine } = await import("@/lib/mv/volcengine");
-    const content = await optimizeStoryboardPromptWithVolcengine({
-      projectTitle: input.title,
-      visualStyle: input.visualStyle,
+    const { generateSongLyricsWithVolcengine } = await import("@/lib/mv/volcengine");
+    const content = await generateSongLyricsWithVolcengine({
+      title: input.title,
+      conceptPrompt: input.conceptPrompt,
       musicStyle: input.musicStyle,
-      lyricLine: input.conceptPrompt,
-      prompt: [
-        `请根据以下 MV 创意生成一段适合中文流行歌曲演唱的歌词。`,
-        `标题：${input.title}`,
-        `视觉风格：${input.visualStyle}`,
-        `音乐风格：${input.musicStyle}`,
-        `创意描述：${input.conceptPrompt}`,
-        "要求：输出 8 到 12 行中文歌词；有画面感、可唱性和情绪起伏；不要解释；不要加标题。",
-      ].join("\n"),
+      visualStyle: input.visualStyle,
     });
 
     return content?.trim() || null;
