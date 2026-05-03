@@ -35,12 +35,12 @@ type Scene = {
   startSec: number;
   endSec: number;
   lyricLine: string;
-  subtitleText?: string;
-  subtitleStartSec?: number;
-  subtitleEndSec?: number;
+  subtitleText?: string | null;
+  subtitleStartSec?: number | null;
+  subtitleEndSec?: number | null;
   continuityLine?: string | null;
   prompt: string;
-  primaryCharacterId?: string;
+  primaryCharacterId?: string | null;
   identityLock?: string;
   previewImageUrl?: string | null;
   resultVideoUrl?: string | null;

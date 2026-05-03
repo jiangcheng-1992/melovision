@@ -98,6 +98,10 @@ model StoryboardScene {
   startSec        Int
   endSec          Int
   lyricLine       String
+  subtitleText    String?
+  subtitleStartSec Int?
+  subtitleEndSec  Int?
+  primaryCharacterId String?
   continuityLine  String?
   prompt          String
   previewImageUrl String?

@@ -8,6 +8,18 @@ import type {
   TimedLyricLine,
 } from "@/storyboard/types";
 
+type DemoStoryboardPlanTemplate = Omit<
+  StoryboardPlan,
+  | "subtitleText"
+  | "lyricIntent"
+  | "primaryCharacterId"
+  | "visibleCharacterIds"
+  | "allowCharacterChange"
+  | "characterChangeReason"
+  | "identityGuard"
+  | "continuityChecklist"
+>;
+
 const demoLyrics: TimedLyricLine[] = [
   { text: "地铁门关上以后 你还站在原地看着我", startSec: 0, endSec: 5.2 },
   { text: "耳机里的鼓点像心跳 把没说完的话推向夜色", startSec: 5.2, endSec: 9.8 },
@@ -21,7 +33,7 @@ const mockLlm: LLMClient = {
     userPrompt: string,
     schema: TSchema,
   ): Promise<z.infer<TSchema>> {
-    const responses: StoryboardPlan[] = [
+    const responses: DemoStoryboardPlanTemplate[] = [
       {
         sceneId: "scene-1",
         index: 0,
@@ -157,7 +169,7 @@ const mockLlm: LLMClient = {
   },
 };
 
-function pickPlanByPrompt(userPrompt: string, responses: StoryboardPlan[]) {
+function pickPlanByPrompt(userPrompt: string, responses: DemoStoryboardPlanTemplate[]) {
   const currentText = userPrompt.match(/- text:\s*(.+)/)?.[1] ?? userPrompt;
 
   if (currentText.includes("回到梦里")) {
