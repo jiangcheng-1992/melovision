@@ -66,11 +66,27 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
 }
 
 function getLyricLines(option: MusicOption) {
+  const isMetadataLine = (line: string) => {
+    const normalized = line.trim().toLowerCase();
+    return [
+      "aspect ratio:",
+      "shot density:",
+      "performance mode:",
+      "subtitle mode:",
+      "consistency boost:",
+      "style preset:",
+      "visual style:",
+      "music style:",
+      "project title:",
+      "title:",
+    ].some((prefix) => normalized.startsWith(prefix));
+  };
+
   const source = option.lyrics?.trim() || option.lyricSnippet;
   return source
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter((line) => Boolean(line) && !isMetadataLine(line));
 }
 
 export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps) {
@@ -86,6 +102,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
   const [advanceProgress, setAdvanceProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeLyricLineRef = useRef<HTMLDivElement | null>(null);
+  const previewRequestRef = useRef(0);
 
   const previewTitle = useMemo(() => {
     if (!previewingId) {
@@ -188,22 +205,70 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
     setActiveOptionId(option.id);
 
     if (previewingId === option.id) {
+      previewRequestRef.current += 1;
       audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
       audio.currentTime = 0;
       setPreviewingId(null);
       setCurrentTime(0);
       return;
     }
 
+    const requestId = previewRequestRef.current + 1;
+    previewRequestRef.current = requestId;
+
     try {
       audio.pause();
-      audio.src = `/api/projects/${projectId}/music-options/${option.id}/audio`;
+      audio.removeAttribute("src");
+      audio.load();
+      audio.src = `/api/projects/${projectId}/music-options/${option.id}/audio?ts=${Date.now()}`;
       audio.currentTime = 0;
       setCurrentTime(0);
       setDuration(getDisplayDuration(0, option.durationSec));
+
+      await new Promise<void>((resolve, reject) => {
+        const cleanup = () => {
+          audio.removeEventListener("canplay", handleCanPlay);
+          audio.removeEventListener("error", handleError);
+        };
+
+        const handleCanPlay = () => {
+          cleanup();
+          resolve();
+        };
+
+        const handleError = () => {
+          cleanup();
+          reject(new Error("AUDIO_LOAD_FAILED"));
+        };
+
+        audio.addEventListener("canplay", handleCanPlay, { once: true });
+        audio.addEventListener("error", handleError, { once: true });
+        audio.load();
+      });
+
+      if (previewRequestRef.current !== requestId) {
+        return;
+      }
+
       await audio.play();
+
+      if (previewRequestRef.current !== requestId) {
+        audio.pause();
+        return;
+      }
+
       setPreviewingId(option.id);
-    } catch {
+    } catch (error) {
+      if (previewRequestRef.current !== requestId) {
+        return;
+      }
+
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+
       setPreviewError("试听失败，请稍后重试");
       setPreviewingId(null);
     }

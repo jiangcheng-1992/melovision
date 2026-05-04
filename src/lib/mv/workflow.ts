@@ -711,6 +711,30 @@ type StoryboardSceneDraft = {
   status: string;
 };
 
+function sanitizeLyricsContent(rawText: string) {
+  return rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const normalized = line.toLowerCase();
+      return ![
+        "aspect ratio:",
+        "shot density:",
+        "performance mode:",
+        "subtitle mode:",
+        "consistency boost:",
+        "style preset:",
+        "visual style:",
+        "music style:",
+        "project title:",
+        "title:",
+      ].some((prefix) => normalized.startsWith(prefix));
+    })
+    .join("\n")
+    .trim();
+}
+
 async function buildStoryboardScenes(project: {
   title: string;
   conceptPrompt: string;
@@ -725,8 +749,12 @@ async function buildStoryboardScenes(project: {
   } | null;
 }) {
   const durationSec = project.selectedMusic?.durationSec ?? 192;
+  const sanitizedLyrics =
+    sanitizeLyricsContent(project.selectedMusic?.lyrics || "") ||
+    sanitizeLyricsContent(project.selectedMusic?.lyricSnippet || "") ||
+    project.conceptPrompt;
   const lyrics = buildTimedLyricsForStoryboard(
-    project.selectedMusic?.lyrics || project.selectedMusic?.lyricSnippet || project.conceptPrompt,
+    sanitizedLyrics,
     durationSec,
   );
 

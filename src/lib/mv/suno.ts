@@ -147,22 +147,25 @@ export function isSunoEnabled() {
 
 function buildGeneratePayload(input: SunoGenerationInput) {
   const customLyrics = input.customLyrics?.trim();
-  const prompt = customLyrics || input.conceptPrompt;
   const musicGenerationMode = input.musicGenerationMode ?? "song";
+  const isSongWithLyrics = musicGenerationMode === "song" && Boolean(customLyrics);
+  const prompt = isSongWithLyrics
+    ? customLyrics!
+    : [
+        input.conceptPrompt,
+        `Aspect Ratio: ${input.aspectRatio ?? "16:9"}`,
+        `Shot Density: ${input.shotDensity ?? "balanced"}`,
+        `Performance Mode: ${input.performanceMode ?? "cinematic"}`,
+        `Subtitle Mode: ${input.subtitleMode ?? "stylized"}`,
+        `Consistency Boost: ${input.consistencyBoost ? "on" : "off"}`,
+      ].join("\n");
 
   return {
     customMode: true,
     instrumental: musicGenerationMode === "instrumental",
     model: SUNO_MODEL,
     title: input.title,
-    prompt: [
-      prompt,
-      `Aspect Ratio: ${input.aspectRatio ?? "16:9"}`,
-      `Shot Density: ${input.shotDensity ?? "balanced"}`,
-      `Performance Mode: ${input.performanceMode ?? "cinematic"}`,
-      `Subtitle Mode: ${input.subtitleMode ?? "stylized"}`,
-      `Consistency Boost: ${input.consistencyBoost ? "on" : "off"}`,
-    ].join("\n"),
+    prompt,
     style: `${input.musicStyle}, ${input.visualStyle}, ${input.aspectRatio ?? "16:9"}`,
     negativeTags: "low quality, clipping, distorted vocals",
     callBackUrl: getSunoCallbackUrl(),
@@ -389,17 +392,62 @@ function extractNestedString(value: unknown, paths: string[][]) {
 }
 
 function buildLyricSnippet(track: Record<string, unknown>, fallback: string) {
+  const source = cleanLyricsText(
+    firstString(
+      track.lyricSnippet,
+      track.lyric_snippet,
+      track.lyric,
+      track.lyrics,
+      track.prompt,
+      track.gpt_description_prompt,
+      fallback,
+    ) || fallback,
+  );
+
+  return source.split(/\r?\n/)[0]?.slice(0, 120) || fallback;
+}
+
+function cleanLyricsText(input: string) {
+  const lines = input
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const normalized = line.toLowerCase();
+      if (!normalized) {
+        return false;
+      }
+
+      // Filter out technical/config lines that sometimes leak back from request prompts.
+      return ![
+        "aspect ratio:",
+        "shot density:",
+        "performance mode:",
+        "subtitle mode:",
+        "consistency boost:",
+        "style preset:",
+        "visual style:",
+        "music style:",
+        "project title:",
+        "title:",
+      ].some((prefix) => normalized.startsWith(prefix));
+    });
+
+  return lines.join("\n").trim();
+}
+
+function resolveLyrics(track: Record<string, unknown>) {
   const source = firstString(
+    track.lyrics,
+    track.lyric,
     track.lyricSnippet,
     track.lyric_snippet,
     track.prompt,
     track.gpt_description_prompt,
-    track.lyric,
-    track.lyrics,
-    fallback,
   );
 
-  return (source || fallback).split(/\r?\n/)[0]?.slice(0, 120) || fallback;
+  const cleaned = source ? cleanLyricsText(source) : "";
+  return cleaned || undefined;
 }
 
 function normalizeTrack(
@@ -414,7 +462,7 @@ function normalizeTrack(
   return {
     title: firstString(track.title, `${input.title} · Suno 版本 ${index + 1}`) || `${input.title} · Suno 版本 ${index + 1}`,
     lyricSnippet: buildLyricSnippet(track, input.conceptPrompt),
-    lyrics: firstString(track.lyrics, track.lyric, track.prompt),
+    lyrics: resolveLyrics(track),
     durationSec: Math.round(firstNumber(track.durationSec, track.duration, track.audio_duration) || 180),
     bpm: Math.round(firstNumber(track.bpm, track.tempo) || 120),
     genre,
