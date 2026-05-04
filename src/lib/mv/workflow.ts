@@ -753,9 +753,11 @@ async function buildStoryboardScenes(project: {
     sanitizeLyricsContent(project.selectedMusic?.lyrics || "") ||
     sanitizeLyricsContent(project.selectedMusic?.lyricSnippet || "") ||
     project.conceptPrompt;
+  const introLeadInSec = estimateStoryboardIntroLeadIn(sanitizedLyrics, durationSec);
   const lyrics = buildTimedLyricsForStoryboard(
     sanitizedLyrics,
     durationSec,
+    introLeadInSec,
   );
 
   const fallback = buildFallbackStoryboardScenes(project, lyrics, durationSec);
@@ -794,12 +796,17 @@ async function buildStoryboardScenes(project: {
       return fallback;
     }
 
-    return storyboard.scenes.map((scene, index) => {
+    const introScene =
+      introLeadInSec > 0
+        ? buildIntroStoryboardSceneDraft(project, introLeadInSec)
+        : null;
+
+    const plannedScenes = storyboard.scenes.map((scene, index) => {
       const startSec = toSceneStartSecond(scene.segment.startSec);
       const endSec = toSceneEndSecond(scene.segment.endSec, durationSec, startSec);
 
       return {
-        sortOrder: index,
+        sortOrder: introScene ? index + 1 : index,
         startSec,
         endSec,
         lyricLine: scene.segment.subtitleText,
@@ -809,6 +816,8 @@ async function buildStoryboardScenes(project: {
         status: "ready",
       };
     });
+
+    return introScene ? [introScene, ...plannedScenes] : plannedScenes;
   } catch (error) {
     console.warn("[storyboard] generate_fallback", {
       title: project.title,
@@ -869,8 +878,11 @@ function buildFallbackStoryboardScenes(
   const safeLyrics =
     lyrics.length > 0 ? lyrics : buildTimedLyricsForStoryboard(project.conceptPrompt, durationSec);
   const segments = new LyricsSegmenter().segment(safeLyrics);
+  const introLeadInSec = segments[0] ? Math.max(0, segments[0].startSec) : 0;
+  const introScene =
+    introLeadInSec > 0 ? buildIntroStoryboardSceneDraft(project, introLeadInSec) : null;
 
-  return segments.map((line, index) => {
+  const lyricScenes = segments.map((line, index) => {
     const previousLyric =
       index > 0 ? segments[index - 1]?.subtitleText ?? `${project.title} 开场氛围建立` : `${project.title} 开场氛围建立`;
     const nextLyric =
@@ -883,7 +895,7 @@ function buildFallbackStoryboardScenes(
         : `承接上一段“${previousLyric}”，过渡到下一段“${nextLyric}”，保持人物、机位和光线连续。`;
 
     return {
-      sortOrder: index,
+      sortOrder: introScene ? index + 1 : index,
       startSec: toSceneStartSecond(line.startSec),
       endSec: toSceneEndSecond(line.endSec, durationSec, toSceneStartSecond(line.startSec)),
       lyricLine: line.subtitleText,
@@ -904,9 +916,80 @@ function buildFallbackStoryboardScenes(
       status: "ready",
     };
   });
+
+  return introScene ? [introScene, ...lyricScenes] : lyricScenes;
 }
 
-function buildTimedLyricsForStoryboard(rawLyrics: string, totalDurationSec: number): TimedLyricLine[] {
+function estimateStoryboardIntroLeadIn(rawLyrics: string, totalDurationSec: number) {
+  const cleaned = sanitizeLyricsContent(rawLyrics);
+  if (!cleaned) {
+    return 0;
+  }
+
+  const parts = cleaned
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/[。！？!?]/))
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 2 || totalDurationSec < 30) {
+    return 0;
+  }
+
+  return Math.min(8, Math.max(4, Math.round(totalDurationSec * 0.04)));
+}
+
+function buildIntroStoryboardSceneDraft(
+  project: {
+    title: string;
+    conceptPrompt: string;
+    visualStyle: string;
+  },
+  introLeadInSec: number,
+): StoryboardSceneDraft {
+  const prompt = serializeStoryboardPromptBundle({
+    shared_context: [
+      `项目：${project.title}`,
+      `整体概念：${project.conceptPrompt}`,
+      `视觉风格：${project.visualStyle}`,
+      "当前阶段：歌曲前奏开场，无人声歌词字幕。",
+    ].join("\n"),
+    identity_lock: "主角与场景设定保持稳定，当前镜头优先建立世界观与情绪基调。",
+    cover_prompt: [
+      "为歌曲前奏阶段生成开场封面图。",
+      `整体概念：${project.conceptPrompt}`,
+      `视觉风格：${project.visualStyle}`,
+      "要求：当前镜头是无人声前奏，不展示任何歌词字幕，以氛围、角色出场或环境建立为主。",
+    ].join("\n"),
+    video_prompt: [
+      "你正在为 AI 音乐 MV 生成前奏开场分镜视频 prompt。",
+      `整体概念：${project.conceptPrompt}`,
+      `视觉风格：${project.visualStyle}`,
+      `前奏时长约 ${introLeadInSec} 秒。`,
+      "当前镜头仍处于无人声前奏阶段，不展示歌词字幕。",
+      "镜头任务：建立主角、场景、节奏和情绪基调，为第一句歌词出现做铺垫。",
+    ].join("\n"),
+    negative_prompt:
+      "text, typography, subtitles, watermark, logo, extra characters, duplicated people, malformed hands, broken limbs, fused fingers, deformed face, low consistency",
+    subtitle_text: "",
+    subtitle_start_sec: introLeadInSec,
+    subtitle_end_sec: introLeadInSec,
+    primary_character_id: "main-character",
+  });
+
+  return {
+    sortOrder: 0,
+    startSec: 0,
+    endSec: toSceneEndSecond(introLeadInSec, introLeadInSec, 0),
+    lyricLine: "",
+    continuityLine: null,
+    prompt,
+    previewImageUrl: null,
+    status: "ready",
+  };
+}
+
+function buildTimedLyricsForStoryboard(rawLyrics: string, totalDurationSec: number, leadInSec = 0): TimedLyricLine[] {
   const parts = rawLyrics
     .split(/\r?\n/)
     .flatMap((line) => line.split(/[。！？!?]/))
@@ -915,10 +998,12 @@ function buildTimedLyricsForStoryboard(rawLyrics: string, totalDurationSec: numb
 
   const safeParts = parts.length > 0 ? parts : ["为当前 MV 生成开场氛围与情绪推进镜头。"];
   const totalWeight = safeParts.reduce((sum, part) => sum + Math.max(1, part.replace(/\s+/g, "").length), 0);
-  let cursor = 0;
+  const effectiveLeadInSec = Math.max(0, Math.min(totalDurationSec - 0.5, leadInSec));
+  const availableDuration = Math.max(0.5, totalDurationSec - effectiveLeadInSec);
+  let cursor = effectiveLeadInSec;
 
   return safeParts.map((text, index) => {
-    const rawDuration = (Math.max(8, totalDurationSec) * Math.max(1, text.replace(/\s+/g, "").length)) / totalWeight;
+    const rawDuration = (Math.max(8, availableDuration) * Math.max(1, text.replace(/\s+/g, "").length)) / totalWeight;
     const remaining = Math.max(0.5, totalDurationSec - cursor);
     const clampedDuration = Math.min(10, Math.max(2.5, rawDuration));
     const durationSec =

@@ -185,6 +185,27 @@ function getSceneSubtitleText(scene?: Scene | null) {
   return scene?.subtitleText?.trim() || scene?.lyricLine?.trim() || "";
 }
 
+function shouldDisplaySceneSubtitle(scene?: Scene | null, localVideoTimeSec?: number) {
+  if (!scene) {
+    return false;
+  }
+
+  const subtitleText = getSceneSubtitleText(scene);
+  if (!subtitleText) {
+    return false;
+  }
+
+  if (typeof localVideoTimeSec !== "number") {
+    return true;
+  }
+
+  const absoluteTime = scene.startSec + Math.max(0, localVideoTimeSec);
+  const subtitleStartSec = scene.subtitleStartSec ?? scene.startSec;
+  const subtitleEndSec = scene.subtitleEndSec ?? scene.endSec;
+
+  return absoluteTime >= subtitleStartSec && absoluteTime <= subtitleEndSec;
+}
+
 export function WorkbenchStudio({
   project,
   projectId,
@@ -1013,7 +1034,10 @@ export function WorkbenchStudio({
                     />
                   )}
                   <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-[#14121f]/90 via-[#14121f]/20 to-transparent p-4">
-                    {getSceneSubtitleText(selectedScene) ? (
+                    {shouldDisplaySceneSubtitle(
+                      selectedScene,
+                      selectedScene?.resultVideoUrl ? videoCurrentTime : 0,
+                    ) ? (
                       <div className="mb-3 flex justify-center">
                         <div className="max-w-[85%] rounded-lg bg-black/55 px-3 py-2 text-center text-sm font-medium text-white shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm">
                           {getSceneSubtitleText(selectedScene)}
@@ -1113,7 +1137,7 @@ export function WorkbenchStudio({
                           />
                         )}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#14121f] to-transparent p-2">
-                          {getSceneSubtitleText(scene) ? (
+                          {shouldDisplaySceneSubtitle(scene, 0) ? (
                             <div className="mb-1 line-clamp-2 rounded bg-black/45 px-1.5 py-1 text-[10px] text-white">
                               {getSceneSubtitleText(scene)}
                             </div>
