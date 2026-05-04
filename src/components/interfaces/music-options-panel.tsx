@@ -103,6 +103,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeLyricLineRef = useRef<HTMLDivElement | null>(null);
   const previewRequestRef = useRef(0);
+  const activeOptionRef = useRef<MusicOption | null>(options[0] ?? null);
 
   const previewTitle = useMemo(() => {
     if (!previewingId) {
@@ -118,6 +119,10 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
 
   const activeLyrics = useMemo(() => {
     return activeOption ? getLyricLines(activeOption) : [];
+  }, [activeOption]);
+
+  useEffect(() => {
+    activeOptionRef.current = activeOption;
   }, [activeOption]);
 
   const activeLyricIndex = useMemo(() => {
@@ -140,7 +145,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
     };
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const syncDuration = () => {
-      const fallback = options.find((option) => option.id === activeOptionId)?.durationSec || 0;
+      const fallback = activeOptionRef.current?.durationSec || 0;
       setDuration(getDisplayDuration(audio.duration, fallback));
     };
     audio.addEventListener("ended", handleEnded);
@@ -159,7 +164,7 @@ export function MusicOptionsPanel({ projectId, options }: MusicOptionsPanelProps
       audio.removeEventListener("durationchange", syncDuration);
       audioRef.current = null;
     };
-  }, [activeOptionId, options]);
+  }, []);
 
   useEffect(() => {
     activeLyricLineRef.current?.scrollIntoView({
