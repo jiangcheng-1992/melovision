@@ -660,7 +660,7 @@ export async function createVideoGenerationTaskWithVolcengine(
 
   if (!useFirstLastFrameMode) {
     for (const referenceImageUrl of referenceImageUrls) {
-      if (referenceImageUrl === firstFrameUrl || referenceImageUrl === lastFrameUrl) {
+      if (useFirstLastFrameMode && (referenceImageUrl === firstFrameUrl || referenceImageUrl === lastFrameUrl)) {
         continue;
       }
 
@@ -677,6 +677,7 @@ export async function createVideoGenerationTaskWithVolcengine(
   if (!useFirstLastFrameMode && isRemoteAssetUrl(input.referenceAudioUrl)) {
     content.push({
       type: "audio_url",
+      role: "reference_audio",
       audio_url: {
         url: input.referenceAudioUrl,
       },
