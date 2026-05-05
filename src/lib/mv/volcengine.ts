@@ -176,6 +176,14 @@ function isRemoteAssetUrl(value?: string | null) {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function isSameRemoteAssetUrl(left?: string | null, right?: string | null) {
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.trim() === right.trim();
+}
+
 function buildStoryboardImagePrompt(input: StoryboardImageInput) {
   return [
     input.prompt,
@@ -573,7 +581,11 @@ export async function createVideoGenerationTaskWithVolcengine(
   const firstFrameUrl =
     input.scenes.find((scene) => isRemoteAssetUrl(scene.firstFrameUrl))?.firstFrameUrl ??
     input.scenes.find((scene) => isRemoteAssetUrl(scene.previewImageUrl))?.previewImageUrl;
-  const lastFrameUrl = input.scenes.find((scene) => isRemoteAssetUrl(scene.lastFrameUrl))?.lastFrameUrl;
+  const requestedLastFrameUrl = input.scenes.find((scene) => isRemoteAssetUrl(scene.lastFrameUrl))?.lastFrameUrl;
+  const lastFrameUrl =
+    requestedLastFrameUrl && !isSameRemoteAssetUrl(firstFrameUrl, requestedLastFrameUrl)
+      ? requestedLastFrameUrl
+      : undefined;
   const useFirstLastFrameMode = Boolean(firstFrameUrl && lastFrameUrl);
   const referenceImageUrls = Array.from(
     new Set(
@@ -656,6 +668,9 @@ export async function createVideoGenerationTaskWithVolcengine(
     useFirstLastFrameMode,
     hasFirstFrame: Boolean(firstFrameUrl),
     hasLastFrame: Boolean(lastFrameUrl),
+    ignoredDuplicateLastFrame: Boolean(
+      requestedLastFrameUrl && isSameRemoteAssetUrl(firstFrameUrl, requestedLastFrameUrl),
+    ),
     referenceImageCount: useFirstLastFrameMode ? 0 : referenceImageUrls.length,
     hasReferenceAudio: !useFirstLastFrameMode && isRemoteAssetUrl(input.referenceAudioUrl),
     duration: payload.duration,

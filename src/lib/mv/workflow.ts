@@ -2050,7 +2050,6 @@ export async function generateStoryboardSceneVideo(
             previousScene?.previewImageUrl && isRemoteReferenceAssetUrl(previousScene.previewImageUrl)
               ? previousScene.previewImageUrl
               : resolvedPreviewImageUrl,
-          lastFrameUrl: resolvedPreviewImageUrl,
           referenceImageUrls: [
             previousScene?.previewImageUrl,
             resolvedPreviewImageUrl,
