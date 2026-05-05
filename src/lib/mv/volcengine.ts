@@ -624,8 +624,10 @@ export async function createVideoGenerationTaskWithVolcengine(
   const useFirstLastFrameMode = Boolean(firstFrameUrl && lastFrameUrl);
   const referenceImageUrls = Array.from(
     new Set(
-      input.scenes
-        .flatMap((scene) => scene.referenceImageUrls ?? [])
+      [
+        ...(useFirstLastFrameMode || !firstFrameUrl ? [] : [firstFrameUrl]),
+        ...input.scenes.flatMap((scene) => scene.referenceImageUrls ?? []),
+      ]
         .filter((value): value is string => isRemoteAssetUrl(value)),
     ),
   ).slice(0, 9);
@@ -636,7 +638,7 @@ export async function createVideoGenerationTaskWithVolcengine(
     },
   ];
 
-  if (firstFrameUrl) {
+  if (useFirstLastFrameMode && firstFrameUrl) {
     content.push({
       type: "image_url",
       role: "first_frame",
@@ -646,7 +648,7 @@ export async function createVideoGenerationTaskWithVolcengine(
     });
   }
 
-  if (lastFrameUrl) {
+  if (useFirstLastFrameMode && lastFrameUrl) {
     content.push({
       type: "image_url",
       role: "last_frame",
@@ -704,6 +706,7 @@ export async function createVideoGenerationTaskWithVolcengine(
   });
   logVolcengine("video_submit_start", {
     model: payload.model,
+    frameMode: useFirstLastFrameMode ? "first_last_frame" : "reference_image",
     useFirstLastFrameMode,
     hasFirstFrame: Boolean(firstFrameUrl),
     firstFrameUrl: summarizeAssetUrl(firstFrameUrl),
