@@ -534,7 +534,7 @@ export function WorkbenchStudio({
           scene.id === selectedScene.id ? { ...scene, ...payload.scene } : scene,
         ),
       );
-      showAction("已用 AI 优化当前场景提示词");
+      showAction("已用 AI 优化当前场景提示词，并同步刷新封面");
     } catch (error) {
       showAction(error instanceof Error ? error.message : "场景优化失败");
     }

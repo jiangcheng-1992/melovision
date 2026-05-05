@@ -23,6 +23,7 @@ import {
   extractStoryboardVideoPrompt,
   parseStoryboardPromptBundle,
   serializeStoryboardPromptBundle,
+  updateStoryboardPromptBundle,
   updateStoryboardVideoPrompt,
 } from "@/lib/mv/storyboard-prompt-package";
 import { prisma } from "@/lib/prisma";
@@ -203,6 +204,21 @@ function buildSceneSharedContext(project: {
     `当前歌词：${scene.lyricLine}`,
     scene.continuityLine ? `连续性：${scene.continuityLine}` : "连续性：首镜建立主角、空间与情绪基调。",
   ].join("\n");
+}
+
+function summarizeRemoteAssetUrl(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const pathSegments = parsed.pathname.split("/").filter(Boolean);
+    const tail = pathSegments.slice(-2).join("/") || parsed.pathname;
+    return `${parsed.host}/${tail}`;
+  } catch {
+    return value.slice(0, 120);
+  }
 }
 
 function buildFallbackScenePromptBundle(project: {
@@ -1096,8 +1112,8 @@ async function ensureScenePreviewImage(project: {
   prompt: string;
   previewImageUrl?: string | null;
   continuityLine?: string | null;
-}, continuityReferenceImageUrl?: string | null) {
-  if (!isMockScenePreviewImage(scene.previewImageUrl)) {
+}, continuityReferenceImageUrl?: string | null, options?: { forceRegenerate?: boolean }) {
+  if (!options?.forceRegenerate && !isMockScenePreviewImage(scene.previewImageUrl)) {
     return scene.previewImageUrl ?? null;
   }
 
@@ -1857,7 +1873,17 @@ export async function optimizeStoryboardScene(userId: string, projectId: string,
   }
 
   const editablePrompt = extractStoryboardVideoPrompt(scene.prompt);
+  const promptBundle = resolveScenePromptBundle(
+    {
+      title: project.title,
+      conceptPrompt: project.conceptPrompt,
+      visualStyle: project.visualStyle,
+    },
+    scene,
+    getContinuityReferenceScene(project.scenes, scene.sortOrder)?.previewImageUrl ?? null,
+  );
   let optimizedPrompt = `${editablePrompt}\n强化主体动作连续性、镜头景别层次和光影对比，保持 ${project.visualStyle} 的统一美术语言，并让转场更贴合音乐节奏。`;
+  let optimizedCoverPrompt = `${promptBundle.cover_prompt}\n封面图需同步优化后的主体动作设计、镜头调度和光影氛围，但仍只定格当前段落最有代表性的一帧。`;
 
   try {
     const { optimizeStoryboardPromptWithVolcengine } = await import("@/lib/mv/volcengine");
@@ -1871,6 +1897,11 @@ export async function optimizeStoryboardScene(userId: string, projectId: string,
 
     if (generatedPrompt) {
       optimizedPrompt = generatedPrompt;
+      optimizedCoverPrompt = [
+        promptBundle.cover_prompt,
+        `封面图必须与以下优化后的视频镜头保持一致，但不要生成连续动作，只定格最能代表当前段落的一帧：`,
+        generatedPrompt,
+      ].join("\n");
     }
   } catch (error) {
     console.warn("[volcengine] storyboard_optimize_fallback", {
@@ -1880,13 +1911,50 @@ export async function optimizeStoryboardScene(userId: string, projectId: string,
     });
   }
 
+  const previousScene = getContinuityReferenceScene(project.scenes, scene.sortOrder);
+  const nextPrompt = updateStoryboardPromptBundle(scene.prompt, {
+    videoPrompt: optimizedPrompt,
+    coverPrompt: optimizedCoverPrompt,
+  });
+  let previewImageUrl = scene.previewImageUrl;
+
+  try {
+    previewImageUrl = await ensureScenePreviewImage(
+      {
+        id: project.id,
+        title: project.title,
+        conceptPrompt: project.conceptPrompt,
+        visualStyle: project.visualStyle,
+      },
+      {
+        id: scene.id,
+        sortOrder: scene.sortOrder,
+        lyricLine: scene.lyricLine,
+        prompt: nextPrompt,
+        continuityLine:
+          scene.continuityLine ??
+          `保持当前人物和镜头运动连续，并让当前段落自然衔接到下一段。`,
+        previewImageUrl: scene.previewImageUrl,
+      },
+      previousScene?.previewImageUrl ?? null,
+      { forceRegenerate: true },
+    );
+  } catch (error) {
+    console.warn("[volcengine] storyboard_optimize_cover_refresh_failed", {
+      projectId,
+      sceneId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   const updated = await prisma.storyboardScene.update({
     where: { id: sceneId },
     data: {
-      prompt: updateStoryboardVideoPrompt(scene.prompt, optimizedPrompt),
+      prompt: nextPrompt,
       continuityLine:
         scene.continuityLine ??
         `保持当前人物和镜头运动连续，并让当前段落自然衔接到下一段。`,
+      previewImageUrl,
     },
   });
 
@@ -2029,6 +2097,26 @@ export async function generateStoryboardSceneVideo(
 
   try {
     const { createVideoGenerationTaskWithVolcengine } = await import("@/lib/mv/volcengine");
+    const firstFrameUrl =
+      previousScene?.previewImageUrl && isRemoteReferenceAssetUrl(previousScene.previewImageUrl)
+        ? previousScene.previewImageUrl
+        : resolvedPreviewImageUrl;
+    const referenceImageUrls = [
+      previousScene?.previewImageUrl,
+      resolvedPreviewImageUrl,
+    ].filter((value): value is string => isRemoteReferenceAssetUrl(value));
+    console.info("[mv.workflow] scene_video_request", {
+      projectId,
+      sceneId,
+      sortOrder: scene.sortOrder,
+      previewImageUrl: summarizeRemoteAssetUrl(resolvedPreviewImageUrl),
+      previousSceneSortOrder: previousScene?.sortOrder ?? null,
+      previousPreviewImageUrl: summarizeRemoteAssetUrl(previousScene?.previewImageUrl),
+      firstFrameUrl: summarizeRemoteAssetUrl(firstFrameUrl),
+      lastFrameUrl: null,
+      referenceImages: referenceImageUrls.map((value) => summarizeRemoteAssetUrl(value)),
+      durationSec: Math.min(10, Math.max(4, scene.endSec - scene.startSec)),
+    });
     const task = await createVideoGenerationTaskWithVolcengine({
       title: `${project.title} Scene ${scene.sortOrder + 1}`,
       conceptPrompt: `${project.conceptPrompt}\n当前分镜：${scene.lyricLine}\n${scene.continuityLine ?? ""}`,
@@ -2046,14 +2134,8 @@ export async function generateStoryboardSceneVideo(
           lyricLine: scene.lyricLine,
           subtitleText: promptBundle.subtitle_text,
           previewImageUrl: resolvedPreviewImageUrl,
-          firstFrameUrl:
-            previousScene?.previewImageUrl && isRemoteReferenceAssetUrl(previousScene.previewImageUrl)
-              ? previousScene.previewImageUrl
-              : resolvedPreviewImageUrl,
-          referenceImageUrls: [
-            previousScene?.previewImageUrl,
-            resolvedPreviewImageUrl,
-          ].filter((value): value is string => isRemoteReferenceAssetUrl(value)),
+          firstFrameUrl,
+          referenceImageUrls,
         },
       ],
       aspectRatio: "16:9",
@@ -2645,44 +2727,57 @@ export async function createGenerationJob(userId: string, projectId: string) {
   try {
     const { createVideoGenerationTaskWithVolcengine } = await import("@/lib/mv/volcengine");
     const selectedMusic = getSelectedMusicOption(hydratedProject);
+    const sceneVideoInputs = hydratedProject.scenes.map((scene, index, scenes) => {
+      const previousScene = getContinuityReferenceScene(scenes, scene.sortOrder);
+      const promptBundle = resolveScenePromptBundle(
+        {
+          title: hydratedProject.title,
+          conceptPrompt: hydratedProject.conceptPrompt,
+          visualStyle: hydratedProject.visualStyle,
+        },
+        scene,
+        previousScene?.previewImageUrl ?? null,
+      );
+
+      return {
+        sortOrder: scene.sortOrder,
+        prompt: promptBundle.video_prompt,
+        videoPrompt: promptBundle.video_prompt,
+        sharedContext: promptBundle.shared_context,
+        identityLock: promptBundle.identity_lock,
+        negativePrompt: promptBundle.negative_prompt,
+        continuityLine: scene.continuityLine,
+        lyricLine: scene.lyricLine,
+        subtitleText: promptBundle.subtitle_text,
+        previewImageUrl: scene.previewImageUrl,
+        firstFrameUrl:
+          index === 0
+            ? scene.previewImageUrl
+            : previousScene?.previewImageUrl ?? scene.previewImageUrl,
+        referenceImageUrls: scenes
+          .slice(Math.max(0, index - 1), Math.min(scenes.length, index + 2))
+          .map((item) => item.previewImageUrl)
+          .filter((value): value is string => isRemoteReferenceAssetUrl(value)),
+      };
+    });
+    console.info("[mv.workflow] project_video_request", {
+      projectId,
+      sceneCount: sceneVideoInputs.length,
+      scenes: sceneVideoInputs.map((scene) => ({
+        sortOrder: scene.sortOrder,
+        previewImageUrl: summarizeRemoteAssetUrl(scene.previewImageUrl),
+        firstFrameUrl: summarizeRemoteAssetUrl(scene.firstFrameUrl),
+        lastFrameUrl: null,
+        referenceImages: scene.referenceImageUrls.map((value) => summarizeRemoteAssetUrl(value)),
+      })),
+      durationSec: Math.min(12, Math.max(4, selectedMusic?.durationSec ?? 8)),
+    });
     const volcTask = await createVideoGenerationTaskWithVolcengine({
       title: hydratedProject.title,
       conceptPrompt: hydratedProject.conceptPrompt,
       visualStyle: hydratedProject.visualStyle,
       musicStyle: hydratedProject.musicStyle,
-      scenes: hydratedProject.scenes.map((scene, index, scenes) => {
-        const promptBundle = resolveScenePromptBundle(
-          {
-            title: hydratedProject.title,
-            conceptPrompt: hydratedProject.conceptPrompt,
-            visualStyle: hydratedProject.visualStyle,
-          },
-          scene,
-          getContinuityReferenceScene(scenes, scene.sortOrder)?.previewImageUrl ?? null,
-        );
-
-        return {
-          sortOrder: scene.sortOrder,
-          prompt: promptBundle.video_prompt,
-          videoPrompt: promptBundle.video_prompt,
-          sharedContext: promptBundle.shared_context,
-          identityLock: promptBundle.identity_lock,
-          negativePrompt: promptBundle.negative_prompt,
-          continuityLine: scene.continuityLine,
-          lyricLine: scene.lyricLine,
-          subtitleText: promptBundle.subtitle_text,
-          previewImageUrl: scene.previewImageUrl,
-          firstFrameUrl:
-            index === 0
-              ? scene.previewImageUrl
-              : getContinuityReferenceScene(scenes, scene.sortOrder)?.previewImageUrl ??
-                scene.previewImageUrl,
-          referenceImageUrls: scenes
-            .slice(Math.max(0, index - 1), Math.min(scenes.length, index + 2))
-            .map((item) => item.previewImageUrl)
-            .filter((value): value is string => isRemoteReferenceAssetUrl(value)),
-        };
-      }),
+      scenes: sceneVideoInputs,
       aspectRatio: "16:9",
       durationSec: Math.min(12, Math.max(4, selectedMusic?.durationSec ?? 8)),
       resolution: hydratedProject.exportResolution,

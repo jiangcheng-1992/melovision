@@ -85,3 +85,25 @@ export function updateStoryboardVideoPrompt(
     video_prompt: trimmed,
   });
 }
+
+export function updateStoryboardPromptBundle(
+  rawPrompt: string | null | undefined,
+  updates: {
+    videoPrompt?: string;
+    coverPrompt?: string;
+  },
+) {
+  const parsed = parseStoryboardPromptBundle(rawPrompt);
+  const nextVideoPrompt = updates.videoPrompt?.trim();
+  const nextCoverPrompt = updates.coverPrompt?.trim();
+
+  if (!parsed) {
+    return nextVideoPrompt || rawPrompt?.trim() || "";
+  }
+
+  return serializeStoryboardPromptBundle({
+    ...parsed,
+    video_prompt: nextVideoPrompt || parsed.video_prompt,
+    cover_prompt: nextCoverPrompt || parsed.cover_prompt,
+  });
+}

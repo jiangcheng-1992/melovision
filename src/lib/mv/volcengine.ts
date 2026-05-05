@@ -184,6 +184,21 @@ function isSameRemoteAssetUrl(left?: string | null, right?: string | null) {
   return left.trim() === right.trim();
 }
 
+function summarizeAssetUrl(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const pathSegments = parsed.pathname.split("/").filter(Boolean);
+    const tail = pathSegments.slice(-2).join("/") || parsed.pathname;
+    return `${parsed.host}/${tail}`;
+  } catch {
+    return value.slice(0, 120);
+  }
+}
+
 function buildStoryboardImagePrompt(input: StoryboardImageInput) {
   return [
     input.prompt,
@@ -578,6 +593,26 @@ export async function createVideoGenerationTaskWithVolcengine(
     return null;
   }
 
+  const sceneDebug = input.scenes.map((scene, index) => {
+    const normalizedReferenceImageUrls = (scene.referenceImageUrls ?? []).filter((value) =>
+      isRemoteAssetUrl(value),
+    );
+
+    return {
+      sceneIndex: index,
+      sortOrder: scene.sortOrder,
+      lyricLine: scene.lyricLine,
+      hasPreviewImage: isRemoteAssetUrl(scene.previewImageUrl),
+      previewImageUrl: summarizeAssetUrl(scene.previewImageUrl),
+      hasFirstFrame: isRemoteAssetUrl(scene.firstFrameUrl),
+      firstFrameUrl: summarizeAssetUrl(scene.firstFrameUrl),
+      hasLastFrame: isRemoteAssetUrl(scene.lastFrameUrl),
+      lastFrameUrl: summarizeAssetUrl(scene.lastFrameUrl),
+      firstLastFrameSame: isSameRemoteAssetUrl(scene.firstFrameUrl, scene.lastFrameUrl),
+      referenceImageCount: normalizedReferenceImageUrls.length,
+      referenceImages: normalizedReferenceImageUrls.map((value) => summarizeAssetUrl(value)),
+    };
+  });
   const firstFrameUrl =
     input.scenes.find((scene) => isRemoteAssetUrl(scene.firstFrameUrl))?.firstFrameUrl ??
     input.scenes.find((scene) => isRemoteAssetUrl(scene.previewImageUrl))?.previewImageUrl;
@@ -663,16 +698,25 @@ export async function createVideoGenerationTaskWithVolcengine(
   }
 
   const startedAt = nowMs();
+  logVolcengine("video_submit_scene_inputs", {
+    sceneCount: input.scenes.length,
+    scenes: sceneDebug,
+  });
   logVolcengine("video_submit_start", {
     model: payload.model,
     useFirstLastFrameMode,
     hasFirstFrame: Boolean(firstFrameUrl),
+    firstFrameUrl: summarizeAssetUrl(firstFrameUrl),
     hasLastFrame: Boolean(lastFrameUrl),
+    requestedLastFrameUrl: summarizeAssetUrl(requestedLastFrameUrl),
+    acceptedLastFrameUrl: summarizeAssetUrl(lastFrameUrl),
     ignoredDuplicateLastFrame: Boolean(
       requestedLastFrameUrl && isSameRemoteAssetUrl(firstFrameUrl, requestedLastFrameUrl),
     ),
     referenceImageCount: useFirstLastFrameMode ? 0 : referenceImageUrls.length,
+    referenceImages: (useFirstLastFrameMode ? [] : referenceImageUrls).map((value) => summarizeAssetUrl(value)),
     hasReferenceAudio: !useFirstLastFrameMode && isRemoteAssetUrl(input.referenceAudioUrl),
+    contentRoles: content.map((item) => item.role ?? item.type ?? "unknown"),
     duration: payload.duration,
     ratio: payload.ratio,
     resolution: payload.resolution,
