@@ -11,6 +11,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:storyboard-timeline": "node --import tsx --test src/lib/mv/storyboard-timeline.test.ts",
     "lint": "eslint",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
