@@ -2141,11 +2141,12 @@ export async function generateStoryboardSceneVideo(
       aspectRatio: "16:9",
       durationSec: Math.min(10, Math.max(4, scene.endSec - scene.startSec)),
       resolution: project.exportResolution,
-      generateAudio: true,
-      referenceAudioUrl:
-        selectedMusic && isRemoteReferenceAssetUrl(selectedMusic.audioUrl)
-          ? selectedMusic.audioUrl
-          : null,
+      generateAudio: false,
+      referenceAudioUrl: null,
+      skipAudioReason:
+        selectedMusic?.audioUrl
+          ? "应用侧已单独提供完整歌曲音轨；分镜视频生成不再直传整首参考音频，避免火山引擎音频时长限制与参考媒体模式冲突。"
+          : "当前任务未提供可用参考音频。",
     });
 
     if (!task) {
@@ -2781,11 +2782,12 @@ export async function createGenerationJob(userId: string, projectId: string) {
       aspectRatio: "16:9",
       durationSec: Math.min(12, Math.max(4, selectedMusic?.durationSec ?? 8)),
       resolution: hydratedProject.exportResolution,
-      generateAudio: true,
-      referenceAudioUrl:
-        selectedMusic && isRemoteReferenceAssetUrl(selectedMusic.audioUrl)
-          ? selectedMusic.audioUrl
-          : null,
+      generateAudio: false,
+      referenceAudioUrl: null,
+      skipAudioReason:
+        selectedMusic?.audioUrl
+          ? "应用侧在预览与导出阶段单独挂载完整歌曲音轨；整片视频生成不再直传整首参考音频，避免火山引擎的 reference audio 时长上限。"
+          : "当前任务未提供可用参考音频。",
     });
 
     if (volcTask) {

@@ -43,6 +43,7 @@ export type VolcengineVideoGenerationInput = {
   resolution?: string;
   generateAudio?: boolean;
   referenceAudioUrl?: string | null;
+  skipAudioReason?: string | null;
 };
 
 export type VolcengineVideoTask = {
@@ -720,6 +721,7 @@ export async function createVideoGenerationTaskWithVolcengine(
     referenceImageCount: useFirstLastFrameMode ? 0 : referenceImageUrls.length,
     referenceImages: (useFirstLastFrameMode ? [] : referenceImageUrls).map((value) => summarizeAssetUrl(value)),
     hasReferenceAudio: !useFirstLastFrameMode && isRemoteAssetUrl(input.referenceAudioUrl),
+    skipAudioReason: input.skipAudioReason ?? null,
     contentRoles: content.map((item) => item.role ?? item.type ?? "unknown"),
     duration: payload.duration,
     ratio: payload.ratio,
